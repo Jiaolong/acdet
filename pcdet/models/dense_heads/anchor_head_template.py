@@ -6,6 +6,7 @@ from ...utils import box_coder_utils, common_utils, loss_utils
 from .target_assigner.anchor_generator import AnchorGenerator
 from .target_assigner.atss_target_assigner import ATSSTargetAssigner
 from .target_assigner.axis_aligned_target_assigner import AxisAlignedTargetAssigner
+from .target_assigner.sim_ota_target_assigner import SimOTATargetAssigner
 
 
 class AnchorHeadTemplate(nn.Module):
@@ -40,6 +41,7 @@ class AnchorHeadTemplate(nn.Module):
             anchor_range=point_cloud_range,
             anchor_generator_config=anchor_generator_cfg
         )
+        breakpoint()
         feature_map_size = [grid_size[:2] // config['feature_map_stride'] for config in anchor_generator_cfg]
         anchors_list, num_anchors_per_location_list = anchor_generator.generate_anchors(feature_map_size)
 
@@ -65,6 +67,14 @@ class AnchorHeadTemplate(nn.Module):
                 class_names=self.class_names,
                 box_coder=self.box_coder,
                 match_height=anchor_target_cfg.MATCH_HEIGHT
+            )
+        elif anchor_target_cfg.NAME == 'SimOTA':
+            target_assigner = SimOTATargetAssigner(
+                topk=anchor_target_cfg.TOPK,
+                box_coder=self.box_coder,
+                center_radius=target_cfg.center_radius,
+                iou_weight=target_cfg.iou_weight,
+                cls_weight=target_cfg.cls_weight
             )
         else:
             raise NotImplementedError
