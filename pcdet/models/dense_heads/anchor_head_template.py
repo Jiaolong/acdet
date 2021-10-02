@@ -41,7 +41,6 @@ class AnchorHeadTemplate(nn.Module):
             anchor_range=point_cloud_range,
             anchor_generator_config=anchor_generator_cfg
         )
-        breakpoint()
         feature_map_size = [grid_size[:2] // config['feature_map_stride'] for config in anchor_generator_cfg]
         anchors_list, num_anchors_per_location_list = anchor_generator.generate_anchors(feature_map_size)
 
@@ -70,11 +69,12 @@ class AnchorHeadTemplate(nn.Module):
             )
         elif anchor_target_cfg.NAME == 'SimOTA':
             target_assigner = SimOTATargetAssigner(
-                topk=anchor_target_cfg.TOPK,
                 box_coder=self.box_coder,
-                center_radius=target_cfg.center_radius,
-                iou_weight=target_cfg.iou_weight,
-                cls_weight=target_cfg.cls_weight
+                topk=anchor_target_cfg.TOPK,
+                center_radius=anchor_target_cfg.CENTER_RADIUS,
+                iou_weight=anchor_target_cfg.IOU_WEIGHT,
+                cls_weight=anchor_target_cfg.CLS_WEIGHT,
+                match_height=anchor_target_cfg.MATCH_HEIGHT
             )
         else:
             raise NotImplementedError
