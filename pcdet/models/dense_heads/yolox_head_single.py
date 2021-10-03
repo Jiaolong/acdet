@@ -84,7 +84,7 @@ class YOLOXHeadSingle(AnchorHeadTemplate):
         self.add_module(
                 'cls_loss_func',
                 #loss_utils.SigmoidFocalClassificationLoss(alpha=0.25, gamma=2.0)
-                loss_utils.WeightedCrossEntropyLoss()
+                loss_utils.WeightedCrossEntropyLoss(use_sigmoid=True)
                 )
         self.add_module(
                 'reg_loss_func',
@@ -92,7 +92,7 @@ class YOLOXHeadSingle(AnchorHeadTemplate):
                 )
         self.add_module(
                 'obj_loss_func',
-                loss_utils.WeightedCrossEntropyLoss()
+                loss_utils.WeightedCrossEntropyLoss(use_sigmoid=True)
                 )
         self.add_module(
                 'dir_loss_func',
@@ -107,19 +107,15 @@ class YOLOXHeadSingle(AnchorHeadTemplate):
         box_cls_labels = self.forward_ret_dict['box_cls_labels'] # (B, N)
         box_iou_targets = self.forward_ret_dict['box_iou_targets'] # (B, N)
         
-        pos_mask = box_cls_labels > 0
-        pos_cls_labels = box_cls_labels[pos_mask]
-        pos_iou = box_iou_targets[pos_mask]
-        cls_weights = (pos_cls_labels > 0).float()
-        
-        pos_normalizer = pos_mask.sum().float()
+        cls_weights = (box_cls_labels > 0).float()
+        pos_normalizer = cls_weights.sum(1, keepdim=True).float() # (B, N)
         cls_weights /= torch.clamp(pos_normalizer, min=1.0)
 
-        pos_cls_preds = cls_preds[pos_mask]
-        pos_cls_targets = F.one_hot(pos_cls_labels - 1, self.num_class) * pos_iou.unsqueeze(-1) 
-
-        cls_loss_src = self.cls_loss_func(pos_cls_preds.unsqueeze(0), 
-                pos_cls_targets.unsqueeze(0), weights=cls_weights.unsqueeze(0))
+        cls_labels = box_cls_labels - 1
+        cls_labels[cls_labels < 0] = 0
+        cls_targets = F.one_hot(cls_labels, self.num_class) * box_iou_targets.unsqueeze(-1) 
+        
+        cls_loss_src = self.cls_loss_func(cls_preds, cls_targets, weights=cls_weights)
         cls_loss = cls_loss_src.sum() / batch_size
 
         cls_loss = cls_loss * self.model_cfg.LOSS_CONFIG.LOSS_WEIGHTS['cls_weight']
@@ -139,7 +135,6 @@ class YOLOXHeadSingle(AnchorHeadTemplate):
         obj_targets = torch.zeros_like(obj_preds) # (B, N, 1)
         obj_targets[pos_mask] = 1
 
-        breakpoint()
         obj_weights = torch.ones_like(obj_preds[..., 0]) # (B, N)
         pos_normalizer = pos_mask.sum(1, keepdim=True).float() # (B, N)
         obj_weights /= torch.clamp(pos_normalizer, min=1.0)
@@ -147,9 +142,10 @@ class YOLOXHeadSingle(AnchorHeadTemplate):
         obj_loss = self.obj_loss_func(obj_preds, obj_targets, weights=obj_weights)
         obj_loss = obj_loss.sum() / batch_size
         obj_loss = obj_loss * self.model_cfg.LOSS_CONFIG.LOSS_WEIGHTS['obj_weight']
-        tb_dict['rpn_loss_obj'] = obj_loss.item()
-
-        return box_loss, tb_dict
+        tb_dict = {
+                'rpn_loss_obj': obj_loss.item()
+        }
+        return obj_loss, tb_dict
 
     def get_loss(self):
         cls_loss, tb_dict = self.get_cls_layer_loss()

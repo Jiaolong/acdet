@@ -70,7 +70,7 @@ MODEL:
         NUM_UPSAMPLE_FILTERS: [128, 128, 128]
 
     DENSE_HEAD:
-        NAME: YOLOXHeadSingle
+        NAME: AnchorHeadSingle
         CLASS_AGNOSTIC: False
 
         USE_DIRECTION_CLASSIFIER: True
@@ -89,19 +89,15 @@ MODEL:
         ]
 
         TARGET_ASSIGNER_CONFIG:
-            NAME: SimOTA
+            NAME: ATSS
+            TOPK: 9
             MATCH_HEIGHT: False
             BOX_CODER: ResidualCoder
-            CENTER_RADIUS: 0.3
-            IOU_WEIGHT: 3.0
-            CLS_WEIGHT: 1.0
-            TOPK: 10
 
         LOSS_CONFIG:
             LOSS_WEIGHTS: {
                 'cls_weight': 1.0,
                 'loc_weight': 2.0,
-                'obj_weight': 1.0,
                 'dir_weight': 0.2,
                 'code_weights': [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
             }

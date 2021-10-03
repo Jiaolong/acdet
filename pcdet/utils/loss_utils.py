@@ -183,8 +183,9 @@ class WeightedCrossEntropyLoss(nn.Module):
     Transform input to fit the fomation of PyTorch offical cross entropy loss
     with anchor-wise weighting.
     """
-    def __init__(self):
+    def __init__(self, use_sigmoid=False):
         super(WeightedCrossEntropyLoss, self).__init__()
+        self.use_sigmoid = use_sigmoid
 
     def forward(self, input: torch.Tensor, target: torch.Tensor, weights: torch.Tensor):
         """
@@ -200,9 +201,15 @@ class WeightedCrossEntropyLoss(nn.Module):
             loss: (B, #anchors) float tensor.
                 Weighted cross entropy loss without reduction
         """
-        input = input.permute(0, 2, 1)
-        target = target.argmax(dim=-1)
-        loss = F.cross_entropy(input, target, reduction='none') * weights
+        if self.use_sigmoid:
+            input = input.view(-1, input.shape[-1])
+            target = target.view(-1, target.shape[-1])
+            weights = weights.view(-1, 1)
+            loss = F.binary_cross_entropy_with_logits(input, target, reduction='none') * weights
+        else:
+            input = input.permute(0, 2, 1)
+            target = target.argmax(dim=-1)
+            loss = F.cross_entropy(input, target, reduction='none') * weights
         return loss
 
 
