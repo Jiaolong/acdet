@@ -113,7 +113,7 @@ class YOLOXHeadSingle(AnchorHeadTemplate):
 
         cls_labels = box_cls_labels - 1
         cls_labels[cls_labels < 0] = 0
-        cls_targets = F.one_hot(cls_labels, self.num_class) * box_iou_targets.unsqueeze(-1) 
+        cls_targets = F.one_hot(cls_labels.long(), self.num_class) * box_iou_targets.unsqueeze(-1) 
         
         cls_loss_src = self.cls_loss_func(cls_preds, cls_targets, weights=cls_weights)
         cls_loss = cls_loss_src.sum() / batch_size

@@ -7,6 +7,7 @@ from .target_assigner.anchor_generator import AnchorGenerator
 from .target_assigner.atss_target_assigner import ATSSTargetAssigner
 from .target_assigner.axis_aligned_target_assigner import AxisAlignedTargetAssigner
 from .target_assigner.sim_ota_target_assigner import SimOTATargetAssigner
+from .target_assigner.sim_ota_multi_class_target_assigner import SimOTAMultiClassTargetAssigner
 
 
 class AnchorHeadTemplate(nn.Module):
@@ -76,6 +77,17 @@ class AnchorHeadTemplate(nn.Module):
                 cls_weight=anchor_target_cfg.CLS_WEIGHT,
                 match_height=anchor_target_cfg.MATCH_HEIGHT
             )
+        elif anchor_target_cfg.NAME == 'SimOTAMultiClass':
+            target_assigner = SimOTAMultiClassTargetAssigner(
+                model_cfg=self.model_cfg,
+                class_names=self.class_names,
+                box_coder=self.box_coder,
+                topk=anchor_target_cfg.TOPK,
+                center_radius=anchor_target_cfg.CENTER_RADIUS,
+                iou_weight=anchor_target_cfg.IOU_WEIGHT,
+                cls_weight=anchor_target_cfg.CLS_WEIGHT,
+                match_height=anchor_target_cfg.MATCH_HEIGHT
+            )   
         else:
             raise NotImplementedError
         return target_assigner

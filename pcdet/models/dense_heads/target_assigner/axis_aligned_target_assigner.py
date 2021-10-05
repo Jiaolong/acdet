@@ -33,7 +33,11 @@ class AxisAlignedTargetAssigner(object):
         #         for idx, name in enumerate(rpn_head_cfg['HEAD_CLS_NAME']):
         #             self.gt_remapping[name] = idx + 1
 
-    def assign_targets(self, all_anchors, gt_boxes_with_classes):
+    def assign_targets(self, 
+            all_anchors, 
+            gt_boxes_with_classes,
+            batch_cls_preds=None,
+            batch_box_preds=None):
         """
         Args:
             all_anchors: [(N, 7), ...]
@@ -43,6 +47,7 @@ class AxisAlignedTargetAssigner(object):
         """
 
         bbox_targets = []
+        iou_targets = []
         cls_labels = []
         reg_weights = []
 
@@ -93,10 +98,12 @@ class AxisAlignedTargetAssigner(object):
                 target_dict = {
                     'box_cls_labels': [t['box_cls_labels'].view(-1) for t in target_list],
                     'box_reg_targets': [t['box_reg_targets'].view(-1, self.box_coder.code_size) for t in target_list],
+                    'box_iou_targets': [t['box_iou_targets'].view(-1) for t in target_list],
                     'reg_weights': [t['reg_weights'].view(-1) for t in target_list]
                 }
 
                 target_dict['box_reg_targets'] = torch.cat(target_dict['box_reg_targets'], dim=0)
+                target_dict['box_iou_targets'] = torch.cat(target_dict['box_iou_targets'], dim=0).view(-1)
                 target_dict['box_cls_labels'] = torch.cat(target_dict['box_cls_labels'], dim=0).view(-1)
                 target_dict['reg_weights'] = torch.cat(target_dict['reg_weights'], dim=0).view(-1)
             else:
@@ -104,6 +111,7 @@ class AxisAlignedTargetAssigner(object):
                     'box_cls_labels': [t['box_cls_labels'].view(*feature_map_size, -1) for t in target_list],
                     'box_reg_targets': [t['box_reg_targets'].view(*feature_map_size, -1, self.box_coder.code_size)
                                         for t in target_list],
+                    'box_iou_targets': [t['box_iou_targets'].view(*feature_map_size, -1) for t in target_list],
                     'reg_weights': [t['reg_weights'].view(*feature_map_size, -1) for t in target_list]
                 }
                 target_dict['box_reg_targets'] = torch.cat(
@@ -111,19 +119,23 @@ class AxisAlignedTargetAssigner(object):
                 ).view(-1, self.box_coder.code_size)
 
                 target_dict['box_cls_labels'] = torch.cat(target_dict['box_cls_labels'], dim=-1).view(-1)
+                target_dict['box_iou_targets'] = torch.cat(target_dict['box_iou_targets'], dim=-1).view(-1)
                 target_dict['reg_weights'] = torch.cat(target_dict['reg_weights'], dim=-1).view(-1)
 
             bbox_targets.append(target_dict['box_reg_targets'])
+            iou_targets.append(target_dict['box_iou_targets'])
             cls_labels.append(target_dict['box_cls_labels'])
             reg_weights.append(target_dict['reg_weights'])
 
         bbox_targets = torch.stack(bbox_targets, dim=0)
+        iou_targets = torch.stack(iou_targets, dim=0)
 
         cls_labels = torch.stack(cls_labels, dim=0)
         reg_weights = torch.stack(reg_weights, dim=0)
         all_targets_dict = {
             'box_cls_labels': cls_labels,
             'box_reg_targets': bbox_targets,
+            'box_iou_targets': iou_targets,
             'reg_weights': reg_weights
 
         }
@@ -187,10 +199,12 @@ class AxisAlignedTargetAssigner(object):
                 labels[anchors_with_max_overlap] = gt_classes[gt_inds_force]
 
         bbox_targets = anchors.new_zeros((num_anchors, self.box_coder.code_size))
+        iou_targets = anchors.new_zeros((num_anchors,))
         if len(gt_boxes) > 0 and anchors.shape[0] > 0:
             fg_gt_boxes = gt_boxes[anchor_to_gt_argmax[fg_inds], :]
             fg_anchors = anchors[fg_inds, :]
             bbox_targets[fg_inds, :] = self.box_coder.encode_torch(fg_gt_boxes, fg_anchors)
+            iou_targets[fg_inds] = anchor_to_gt_max[fg_inds]
 
         reg_weights = anchors.new_zeros((num_anchors,))
 
@@ -204,6 +218,7 @@ class AxisAlignedTargetAssigner(object):
         ret_dict = {
             'box_cls_labels': labels,
             'box_reg_targets': bbox_targets,
+            'box_iou_targets': iou_targets,
             'reg_weights': reg_weights,
         }
         return ret_dict
