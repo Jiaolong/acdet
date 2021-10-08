@@ -58,7 +58,6 @@ class AnchorHeadTemplate(nn.Module):
             target_assigner = ATSSTargetAssigner(
                 topk=anchor_target_cfg.TOPK,
                 box_coder=self.box_coder,
-                use_multihead=self.use_multihead,
                 match_height=anchor_target_cfg.MATCH_HEIGHT
             )
         elif anchor_target_cfg.NAME == 'AxisAlignedTargetAssigner':
