@@ -3,6 +3,7 @@ from functools import partial
 import numpy as np
 from skimage import transform
 
+from .projection import PointProjection
 from ...utils import box_utils, common_utils
 
 
@@ -42,6 +43,23 @@ class DataProcessor(object):
             points = points[shuffle_idx]
             data_dict['points'] = points
 
+        return data_dict
+    
+    def project_points(self, data_dict=None, config=None, point_projector=None):
+        if data_dict is None:
+            point_projector = PointProjection(config)
+
+            grid_size = (self.point_cloud_range[3:6] - self.point_cloud_range[0:3]) / np.array(config.VOXEL_SIZE)
+            self.grid_size = np.round(grid_size).astype(np.int64)
+            self.voxel_size = config.VOXEL_SIZE
+
+            return partial(self.project_points, point_projector=point_projector)
+        
+        points = data_dict['points']
+        output = point_projector.project(points)
+        
+        data_dict['points_img'] = output['points_img']
+        data_dict['proj_masks'] = output['proj_masks']
         return data_dict
 
     def transform_points_to_voxels(self, data_dict=None, config=None, voxel_generator=None):
