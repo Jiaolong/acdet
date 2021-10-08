@@ -121,7 +121,7 @@ class SimOTATargetAssigner(object):
         
         valid_mask, is_in_boxes_and_center = self.get_in_gt_and_in_center_info(
             anchors, gt_boxes)
-
+         
         valid_boxes = box_preds[valid_mask]
         valid_scores = cls_preds[valid_mask]
         num_valid = valid_boxes.size(0)
@@ -156,7 +156,7 @@ class SimOTATargetAssigner(object):
         matched_gts[valid_mask] = gt_boxes[matched_gt_inds]
         cls_labels = matched_gt_inds.new_full((num_anchor, ), -1)
         cls_labels[valid_mask] = gt_classes[matched_gt_inds].long()
-        iou_targets = matched_gt_inds.new_full((num_anchor, ), 0.0, dtype=torch.float32)
+        iou_targets = matched_gt_inds.new_full((num_anchor, ), -INF, dtype=torch.float32)
         iou_targets[valid_mask] = matched_pred_ious
 
         reg_targets = matched_gts.new_zeros(
@@ -169,6 +169,19 @@ class SimOTATargetAssigner(object):
                 matched_gts[pos_mask > 0], anchors[pos_mask > 0])
             reg_weights[pos_mask] = 1.0
         
+        if False: # debug
+            import cv2
+            import numpy as np
+            h, w = 248, 216
+            mask_img = valid_mask.reshape((h, w)).cpu().numpy()
+            mask_img = 225 * (1 - mask_img).astype(np.uint8)
+            cv2.imwrite('/tmp/mask_img.png', mask_img)
+            
+            reg_weights_img = reg_weights.reshape((h, w)).cpu().numpy()
+            reg_weights_img = 225 * (1 - reg_weights_img).astype(np.uint8)
+            cv2.imwrite('/tmp/reg_weights_img.png', reg_weights_img)
+            breakpoint()
+
         return cls_labels, reg_targets, iou_targets, reg_weights
 
     def get_in_gt_and_in_center_info(self, anchors, gt_boxes):
