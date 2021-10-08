@@ -6,16 +6,13 @@ class RangeDet(Detector3DTemplate):
     def __init__(self, model_cfg, num_class, dataset):
         super().__init__(model_cfg=model_cfg, num_class=num_class, dataset=dataset)
 
-        self.module_topology = [
-            'backbone_fv', 'range_to_bev', 'backbone_bev', 'dense_head',  'point_head', 'roi_head'
-        ]
-
-        self.module_list = self.build_networks()
+        self.build_networks()
 
     def forward(self, batch_dict):
-        breakpoint()
-        for cur_module in self.module_list:
-            batch_dict = cur_module(batch_dict)
+        batch_dict = self.backbone_fv(batch_dict)
+        batch_dict = self.range_to_bev(batch_dict)
+        batch_dict = self.backbone_bev(batch_dict)
+        batch_dict = self.dense_head(batch_dict)
 
         if self.training:
             loss, tb_dict, disp_dict = self.get_training_loss()
@@ -36,12 +33,10 @@ class RangeDet(Detector3DTemplate):
             'voxel_size': self.dataset.voxel_size
         }
         
-        for module_name in self.module_topology:
-            module, model_info_dict = getattr(self, 'build_%s' % module_name)(
-                model_info_dict=model_info_dict
-            )
-            self.add_module(module_name, module)
-        return model_info_dict['module_list']
+        self.backbone_fv, model_info_dict = self.build_backbone_fv(model_info_dict=model_info_dict)
+        self.range_to_bev, model_info_dict = self.build_range_to_bev(model_info_dict=model_info_dict)
+        self.backbone_bev, model_info_dict = self.build_backbone_bev(model_info_dict=model_info_dict)
+        self.dense_head, model_info_dict = self.build_dense_head(model_info_dict=model_info_dict)
     
     def build_backbone_fv(self, model_info_dict):
         if self.model_cfg.get('BACKBONE_FV', None) is None:
@@ -50,19 +45,19 @@ class RangeDet(Detector3DTemplate):
         backbone_fv_module = backbones_2d.__all__[self.model_cfg.BACKBONE_FV.NAME](
             in_channels=self.model_cfg.BACKBONE_FV.INPUT_CHANNELS,
             out_channels=self.model_cfg.BACKBONE_FV.OUTPUT_CHANNELS,
-            kernel_cfg=self.model_cfg.BACKBONE_FV.KERNEL_CFG
+            kernel_cfg=self.model_cfg.BACKBONE_FV.get('KERNEL_CFG', None)
         )
 
         model_info_dict['module_list'].append(backbone_fv_module)
         return backbone_fv_module, model_info_dict
 
     def build_backbone_bev(self, model_info_dict):
-        if self.model_cfg.get('BACKBONE_2D', None) is None:
+        if self.model_cfg.get('BACKBONE_BEV', None) is None:
             return None, model_info_dict
 
-        backbone_bev_module = backbones_2d.__all__[self.model_cfg.BACKBONE_2D.NAME](
-            model_cfg=self.model_cfg.BACKBONE_2D,
-            input_channels=self.model_cfg.BACKBONE_2D.INPUT_CHANNELS
+        backbone_bev_module = backbones_2d.__all__[self.model_cfg.BACKBONE_BEV.NAME](
+            model_cfg=self.model_cfg.BACKBONE_BEV,
+            input_channels=self.model_cfg.BACKBONE_BEV.INPUT_CHANNELS
         )
 
         model_info_dict['module_list'].append(backbone_bev_module)

@@ -92,9 +92,9 @@ class SALSANEXT(nn.Module):
             self.kernel_type=kernel_cfg.pop("TYPE")
         self.kernel_layer_index =kernel_layer_index
         if self.kernel_type=="meta":
-            self.kernel = MetaKernel(**kernel_cfg)
+            self.kernel = MetaKernel(kernel_cfg)
         elif self.kernel_type=="edge_conv":
-            self.kernel=EdgeConvKernel(**kernel_cfg)
+            self.kernel=EdgeConvKernel(kernel_cfg)
 
         self.resBlock1 = ResBlock(
             32, 2 * 32, 0.2, pooling=True, drop_out=False)

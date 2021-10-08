@@ -58,14 +58,12 @@ MODEL:
         INPUT_CHANNELS: 5
         OUTPUT_CHANNELS: 32
         KERNEL_CFG:
-            TYPE: "meta"
-            META_CHANNELS: 4
+            TYPE: "edge_conv"
             INPUT_CHANNELS: 32
             OUTPUT_CHANNELS: 32
             FEATURE_MAP_SIZE: [48, 512]
-            USE_ATTENTION: True
             USE_MASK: True
-            REDUCED: FALSE
+            REDUCED: False
 
     RANGE_TO_BEV:
         NAME: RangeToBEV
@@ -84,60 +82,40 @@ MODEL:
         NUM_UPSAMPLE_FILTERS: [128, 128, 128]
 
     DENSE_HEAD:
-        NAME: AnchorHeadSingle
+        NAME: YOLOXHeadSingle
         CLASS_AGNOSTIC: False
-        
-        INPUT_CHANNELS: 384
+
         USE_DIRECTION_CLASSIFIER: True
         DIR_OFFSET: 0.78539
         DIR_LIMIT_OFFSET: 0.0
         NUM_DIR_BINS: 2
+        
+        INPUT_CHANNELS: 384
 
         ANCHOR_GENERATOR_CONFIG: [
             {
-                'class_name': 'Car',
-                'anchor_sizes': [[3.9, 1.6, 1.56]],
-                'anchor_rotations': [0, 1.57],
-                'anchor_bottom_heights': [-1.78],
+                'anchor_sizes': [[1.0, 1.0, 1.0]],
+                'anchor_rotations': [0],
+                'anchor_bottom_heights': [-1.0],
                 'align_center': False,
-                'feature_map_stride': 2,
-                'matched_threshold': 0.6,
-                'unmatched_threshold': 0.45
-            },
-            {
-                'class_name': 'Pedestrian',
-                'anchor_sizes': [[0.8, 0.6, 1.73]],
-                'anchor_rotations': [0, 1.57],
-                'anchor_bottom_heights': [-0.6],
-                'align_center': False,
-                'feature_map_stride': 2,
-                'matched_threshold': 0.5,
-                'unmatched_threshold': 0.35
-            },
-            {
-                'class_name': 'Cyclist',
-                'anchor_sizes': [[1.76, 0.6, 1.73]],
-                'anchor_rotations': [0, 1.57],
-                'anchor_bottom_heights': [-0.6],
-                'align_center': False,
-                'feature_map_stride': 2,
-                'matched_threshold': 0.5,
-                'unmatched_threshold': 0.35
+                'feature_map_stride': 2
             }
         ]
 
         TARGET_ASSIGNER_CONFIG:
-            NAME: AxisAlignedTargetAssigner
-            POS_FRACTION: -1.0
-            SAMPLE_SIZE: 512
-            NORM_BY_NUM_EXAMPLES: False
+            NAME: SimOTA
             MATCH_HEIGHT: False
             BOX_CODER: ResidualCoder
+            CENTER_RADIUS: 0.3
+            IOU_WEIGHT: 3.0
+            CLS_WEIGHT: 1.0
+            TOPK: 10
 
         LOSS_CONFIG:
             LOSS_WEIGHTS: {
                 'cls_weight': 1.0,
                 'loc_weight': 2.0,
+                'obj_weight': 1.0,
                 'dir_weight': 0.2,
                 'code_weights': [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
             }
@@ -158,7 +136,7 @@ MODEL:
 
 
 OPTIMIZATION:
-    BATCH_SIZE_PER_GPU: 6
+    BATCH_SIZE_PER_GPU: 4
     NUM_EPOCHS: 80
 
     OPTIMIZER: adam_onecycle

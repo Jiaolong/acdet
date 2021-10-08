@@ -10,12 +10,12 @@ class MetaKernel(nn.Module):
     def __init__(self, kernel_cfg):
         super().__init__()
         self.meta_channels = kernel_cfg.META_CHANNELS
-        self.in_channels = kernel_cfg.IN_CHANNELS
-        self.out_channels = kernel_cfg.OUT_CHANNELS
+        self.in_channels = kernel_cfg.INPUT_CHANNELS
+        self.out_channels = kernel_cfg.OUTPUT_CHANNELS
         self.feature_map_size = kernel_cfg.FEATURE_MAP_SIZE
 
-        self.weight_mlp1 = nn.Linear(meta_channels, in_channels, bias=False)
-        self.weight_bn1 = nn.BatchNorm1d(in_channels)
+        self.weight_mlp1 = nn.Linear(self.meta_channels, self.in_channels, bias=False)
+        self.weight_bn1 = nn.BatchNorm1d(self.in_channels)
         self.relu1 = nn.ReLU(inplace=True)
 
         self.use_mask = kernel_cfg.USE_MASK
@@ -163,28 +163,28 @@ class MetaKernel(nn.Module):
 
 
 class EdgeConvKernel(nn.Module):
-    def __init__(self, in_channels, out_channels, feature_map_size, use_mask=False, reduced=False):
+    def __init__(self, kernel_cfg):
         super().__init__()
 
-        self.in_channels = in_channels
-        self.out_channels = out_channels
-        self.feature_map_size = feature_map_size
-        self.use_mask = use_mask
-        self.reduced = reduced
+        self.in_channels = kernel_cfg.INPUT_CHANNELS
+        self.out_channels = kernel_cfg.OUTPUT_CHANNELS
+        self.feature_map_size = kernel_cfg.FEATURE_MAP_SIZE
+        self.use_mask = kernel_cfg.USE_MASK
+        self.reduced = kernel_cfg.REDUCED
         if self.reduced:
             assert self.use_mask, "reduced must required use_mask is True"
-        self.mlp1 = nn.Linear(3+2*in_channels, in_channels, bias=False)
-        self.bn1 = nn.BatchNorm1d(in_channels)
+        self.mlp1 = nn.Linear(3 + 2 * self.in_channels, self.in_channels, bias=False)
+        self.bn1 = nn.BatchNorm1d(self.in_channels)
         self.relu1 = nn.ReLU(inplace=True)
 
-        self.mlp2 = nn.Linear(in_channels, out_channels, bias=False)
-        self.bn2 = nn.BatchNorm1d(out_channels)
+        self.mlp2 = nn.Linear(self.in_channels, self.out_channels, bias=False)
+        self.bn2 = nn.BatchNorm1d(self.out_channels)
         self.relu2 = nn.ReLU(inplace=True)
 
         self.maxpool = nn.MaxPool1d(kernel_size=9, stride=9)
 
         self.unfold = nn.Unfold(kernel_size=3, dilation=1, padding=1, stride=1)
-        self.fold = nn.Fold(feature_map_size, kernel_size=1,
+        self.fold = nn.Fold(self.feature_map_size, kernel_size=1,
                             dilation=1, padding=0)
 
     def forward(self, x, mask=None):
