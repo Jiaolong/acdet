@@ -104,7 +104,7 @@ class MetaKernel(nn.Module):
 
         x_unfold = self.unfold(x)  # B*C*H*W ---> B*(C*3*3)*(H*W)
         x_unfold = x_unfold.transpose(1, 2).contiguous().reshape(
-            (batch_size, H * W, x.size(1), -1))  # B*HW*C*9
+            (batch_size, H*W, x.size(1), -1))  # B*HW*C*9
         x_unfold = x_unfold.transpose(2, 3).contiguous()  # B*HW*9*C
         features_unfold = x_unfold[..., 3:]  # B*HW*9*C'
         x_pn = x_unfold[..., 0:3]  # B*HW*9*3
@@ -116,48 +116,35 @@ class MetaKernel(nn.Module):
                 (batch_size, H * W, mask.size(1), -1))  # B*HW*1*9
             m_unfold = m_unfold.transpose(2, 3).contiguous()  # B*HW*9*1
 
-            mask_unfold = m_unfold[:, :, 4, 0].bool()  # B*HW
-            m_unfold = m_unfold[mask_unfold]  # N*9*1
-            features_unfold = features_unfold[mask_unfold]  # N*9*C'
-            x_pn = x_pn[mask_unfold]  # N*9*3
-            # print("x_pn shape is ", x_pn.shape)
-            # print("feature shape is ", features_unfold.shape)
-            # print("m_unfold shape is ", m_unfold.shape)
-
         x_pn_range = torch.norm(x_pn, p=2, dim=-1).unsqueeze(-1)
-        x_pn = torch.cat((x_pn, x_pn_range), dim=-1)  # N*9*4
-        x_p0 = x_pn[:, 4:5, :]  # N*1*4
-        pn_p0 = x_pn - x_p0  # N*9*4
-        weights = self.weight_mlp1(pn_p0)  # N*9*C'
-        weights = weights.transpose(1, 2).contiguous()  # N*C'*9
-        weights = self.weight_bn1(weights)
-        weights = weights.transpose(1, 2).contiguous()  # N*9*C'
-        weights = self.relu1(weights)
-        weights = self.weight_mlp2(weights)
+        x_pn = torch.cat((x_pn, x_pn_range), dim=-1)
+        x_p0 = x_pn[:, :, 4:5, :]  # B*HW*1*4
+        pn_p0 = x_pn-x_p0  # B*HW*9*4
+        
+        weights_reduce = self.weight_mlp1(pn_p0[m_unfold[..., 0] > 0])  # B*HW*9*C'
+        weights_reduce = self.weight_bn1(weights_reduce)
+        weights_reduce = self.relu1(weights_reduce)
+        weights_reduce = self.weight_mlp2(weights_reduce)
 
-        # set weights=0 for empty voxels
-        if mask is not None and self.use_mask:
-            weights = weights * m_unfold
+        weights = m_unfold.new_zeros(batch_size, H * W, 9, weights_reduce.shape[-1])
+        weights[m_unfold[..., 0] > 0] = weights_reduce
 
         if self.use_attention:
             weights = weights.squeeze(-1)
             weights = f.softmax(weights, dim=-1)
             weights = weights.unsqueeze(-1)
 
-        features_unfold = weights * features_unfold  # N*9*C'
+        features_unfold = weights*features_unfold  # B*HW*9*C'
+
         features_unfold = features_unfold.reshape(
-            (-1, 9 * self.in_channels))  # N*9C'
-        features_unfold = self.aggregation_mlp(features_unfold)  # N*C''
-        # features_unfold = features_unfold.transpose(1, 2).contiguous()  # C''*HW
+            (batch_size, -1, 9*self.in_channels))  # B*HW*9C'
+
+        features_unfold = self.aggregation_mlp(features_unfold)  # B*HW*C''
+        features_unfold = features_unfold.transpose(
+            1, 2).contiguous()  # B*C''*HW
         features_unfold = self.aggregation_bn(features_unfold)
         features_unfold = self.relu2(features_unfold)
-
-        features = torch.zeros(
-            batch_size, H * W, self.out_channels, dtype=x.dtype, device=x.device)
-
-        features[mask_unfold] = features_unfold
-        features = features.transpose(1, 2).contiguous()
-        features = self.fold(features)  # B*C''*H*W
+        features = self.fold(features_unfold)
 
         return features
 
@@ -342,10 +329,26 @@ class EdgeConvKernel(nn.Module):
 
 def main():
 
-    net = EdgeConvKernel(32, 32, (48, 512), reduced=False,
-                         use_mask=True).cuda()
-    inp = torch.randn(1, 35, 48, 512).cuda()
-    mask = torch.randint(0, 2, (1, 1, 48, 512)).cuda().to(torch.bool)
+    #net = EdgeConvKernel(32, 32, (48, 512), reduced=False,
+    #                     use_mask=True).cuda()
+    from easydict import EasyDict
+    H = 48 * 2
+    W = 512 * 2
+    r = 0.8
+    meta_cfg = {
+        'META_CHANNELS': 4,
+        'INPUT_CHANNELS': 32,
+        'OUTPUT_CHANNELS': 32,
+        'USE_MASK': True,
+        'USE_ATTENTION': True,
+        'REDUCED': True,
+        'FEATURE_MAP_SIZE': (H, W)
+            }
+    net = MetaKernel(EasyDict(meta_cfg)).cuda()
+
+    inp = torch.randn(1, 35, H, W).cuda()
+    mask = torch.ones((1, 1, H, W)).cuda().to(torch.bool)
+    mask[:, :, :, :int(W * r)] = False
     out = net(inp, mask)
     times = []
     for i in range(100):
