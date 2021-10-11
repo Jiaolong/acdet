@@ -58,8 +58,12 @@ class DataProcessor(object):
         points = data_dict['points']
         output = point_projector.project(points)
         
-        data_dict['points_img'] = output['points_img']
-        data_dict['proj_masks'] = output['proj_masks']
+        if point_projector.proj_type == 'bev':
+            data_dict['points_img_bev'] = output['points_img']
+            data_dict['proj_masks_bev'] = output['proj_masks']
+        else:
+            data_dict['points_img'] = output['points_img']
+            data_dict['proj_masks'] = output['proj_masks']
         return data_dict
 
     def transform_points_to_voxels(self, data_dict=None, config=None, voxel_generator=None):

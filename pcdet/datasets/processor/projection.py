@@ -12,8 +12,9 @@ class PointProjection(object):
     """
 
     def __init__(self, project_cfg):
-
         proj_type = project_cfg['TYPE']
+        self.proj_type = proj_type
+
         if proj_type == 'spherical':
             self.projector = SphericalProjector(project_cfg)
         elif proj_type == 'cylindrical':

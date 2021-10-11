@@ -116,6 +116,7 @@ class BaseBEVBackbone_Scale(nn.Module):
     def __init__(self, model_cfg, input_channels):
         super().__init__()
         self.model_cfg = model_cfg
+        self.scale_features_name = self.model_cfg.get('SCALE_FEATURES_NAME', 'spatial_scale_features')
 
         if self.model_cfg.get('LAYER_NUMS', None) is not None:
             assert len(self.model_cfg.LAYER_NUMS) == len(self.model_cfg.LAYER_STRIDES) == len(self.model_cfg.NUM_FILTERS)
@@ -228,7 +229,7 @@ class BaseBEVBackbone_Scale(nn.Module):
         """
         
         spatial_features = data_dict['spatial_features']
-        spatial_scale_features = data_dict['spatial_scale_features']
+        spatial_scale_features = data_dict[self.scale_features_name]
         ups = []
         ret_dict = {}
         x = spatial_features

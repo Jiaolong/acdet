@@ -60,5 +60,5 @@ class SpatialAttention(nn.Module):
         # feature = self.compress(x)
         # att = torch.cat((scale, feature), dim=1)
         att = self.spatial(att)
-        att = F.sigmoid(att) # broadcasting
+        att = torch.sigmoid(att) # broadcasting
         return att * x
