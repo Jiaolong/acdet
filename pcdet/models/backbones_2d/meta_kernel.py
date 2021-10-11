@@ -120,8 +120,9 @@ class MetaKernel(nn.Module):
         x_pn = torch.cat((x_pn, x_pn_range), dim=-1)
         x_p0 = x_pn[:, :, 4:5, :]  # B*HW*1*4
         pn_p0 = x_pn-x_p0  # B*HW*9*4
+        pn_p0 = pn_p0.reshape(-1, pn_p0.shape[-1]).contiguous()
         
-        weights_reduce = self.weight_mlp1(pn_p0[m_unfold[..., 0] > 0])  # B*HW*9*C'
+        weights_reduce = self.weight_mlp1(pn_p0[m_unfold.view(-1) > 0])  # B*HW*9*C'
         weights_reduce = self.weight_bn1(weights_reduce)
         weights_reduce = self.relu1(weights_reduce)
         weights_reduce = self.weight_mlp2(weights_reduce)
