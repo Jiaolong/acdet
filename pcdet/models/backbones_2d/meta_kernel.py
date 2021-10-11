@@ -269,61 +269,64 @@ class EdgeConvKernel(nn.Module):
             (batch_size, H * W, mask.size(1), -1))  # B*HW*1*9
         m_unfold = m_unfold.transpose(2, 3).contiguous()  # B*HW*9*1
 
-        mask_unfold = m_unfold[:, :, 4, 0].bool()  # B*HW
-        m_unfold = m_unfold[mask_unfold]  # N*9*1
-        features_unfold = features_unfold[mask_unfold]  # N*9*C'
-        features_x0_unfold = features_x0_unfold[mask_unfold]  # N*9*C'
-        x_pn = x_pn[mask_unfold]  # N*9*3
+        # mask_unfold = m_unfold[:, :, 4, 0].bool()  # B*HW
+        # m_unfold = m_unfold[mask_unfold]  # N*9*1
+        # features_unfold = features_unfold[mask_unfold]  # N*9*C'
+        # features_x0_unfold = features_x0_unfold[mask_unfold]  # N*9*C'
+        # x_pn = x_pn[mask_unfold]  # N*9*3
 
         x_pn_azimuth = torch.atan2(
-            x_pn[..., 1], x_pn[..., 0]).unsqueeze(-1)  # N*9*1
-        x_p0_azimuth = x_pn_azimuth[:, 4:5]  # N*1*1
+            x_pn[..., 1], x_pn[..., 0]).unsqueeze(-1)  # B*HW*9*1
+        x_p0_azimuth = x_pn_azimuth[:,:, 4:5]  #  B*HW*1*1
         x_pn_range = torch.norm(
-            x_pn[..., :3], p=2, dim=-1).unsqueeze(-1)  # N*9*1
-        x_p0_range = x_pn_range[:, 4:5]  # N*1*1
-        x_pn_depth = torch.norm(x_pn[..., :2], p=2, dim=-1)  # N*9
+            x_pn[..., :3], p=2, dim=-1).unsqueeze(-1)  # B*HW*9*1
+        x_p0_range = x_pn_range[:,:, 4:5]  # B*HW*1*1
+        x_pn_depth = torch.norm(x_pn[..., :2], p=2, dim=-1)  # B*HW*9
         x_pn_inclination = torch.atan2(
-            x_pn[..., 2], x_pn_depth).unsqueeze(-1)  # N*9*1
-        x_p0_inclination = x_pn_inclination[:, 4:5]  # N*1*1
-        x_pn_delta_azi = x_pn_azimuth-x_p0_azimuth  # N*9*1
-        x_pn_delta_inc = x_pn_inclination-x_p0_inclination  # N*9*1
+            x_pn[..., 2], x_pn_depth).unsqueeze(-1)  # B*HW*9*1
+        x_p0_inclination = x_pn_inclination[:, 4:5]  # B*HW*1*1
+        x_pn_delta_azi = x_pn_azimuth-x_p0_azimuth  # B*HW*9*1
+        x_pn_delta_inc = x_pn_inclination-x_p0_inclination  # B*HW*9*1
 
         gamma0 = x_pn_range * \
             torch.cos(x_pn_delta_azi)*torch.cos(x_pn_delta_inc) - \
-            x_p0_range  # N*9*1
+            x_p0_range  # B*HW*9*1
         gamma1 = x_pn_range * \
-            torch.cos(x_pn_delta_azi)*torch.sin(x_pn_delta_inc)  # N*9*1
-        gamma2 = x_pn_range*torch.sin(x_pn_delta_azi)  # N*9*1
-        gamma = torch.cat([gamma0, gamma1, gamma2], dim=-1)  # N*9*3
+            torch.cos(x_pn_delta_azi)*torch.sin(x_pn_delta_inc)  # B*HW*9*1
+        gamma2 = x_pn_range*torch.sin(x_pn_delta_azi)  # B*HW*9*1
+        gamma = torch.cat([gamma0, gamma1, gamma2], dim=-1)  # B*HW*9*1
 
         pn_p0 = torch.cat([features_unfold, features_x0_unfold, gamma], dim=-1)
 
-        features_unfold = self.mlp1(pn_p0)  # N*9*C'
-        features_unfold = features_unfold.transpose(
-            1, 2).contiguous()  # N*C'*9
-        features_unfold = self.bn1(features_unfold)  # N*C'*9
-        features_unfold = self.relu1(features_unfold)  # N*C'*9
-        features_unfold = features_unfold.transpose(
-            1, 2).contiguous()  # N*9*C'
+        pn_p0_reduce=pn_p0[m_unfold[...,0]>0].contiguous() #N*C
 
+        features_unfold_reduce = self.mlp1(pn_p0_reduce)  # N*C'
+        # features_unfold_reduce = features_unfold_reduce.transpose(
+        #     1, 2).contiguous()  # N*C'*9
+        features_unfold_reduce = self.bn1(features_unfold_reduce)  # N*C'
+        features_unfold_reduce = self.relu1(features_unfold_reduce)  # N*C'
+        # features_unfold_reduce = features_unfold_reduce.transpose(
+        #     1, 2).contiguous()  # N*9*C'
+
+        features_unfold = features_unfold_reduce.new_zeros(batch_size, H * W, 9, features_unfold_reduce.shape[-1])
+        features_unfold[m_unfold[...,0] > 0] = features_unfold_reduce  #B*HW*9*C
         # if mask is not None and self.use_mask:
-        features_unfold = features_unfold*m_unfold
+        # features_unfold = features_unfold*m_unfold
 
         features_unfold = features_unfold.transpose(
-            1, 2).contiguous()  # N*C'*9
-        features_unfold = self.maxpool(features_unfold).squeeze(-1)  # N*C'
+            2, 3).contiguous().reshape(batch_size,-1,9)  #B*HWC*9
+        features_unfold = self.maxpool(features_unfold).squeeze(-1)  # B*HWC
 
-        # feature_unfold=feature_unfold.transpose(1,2).contiguous() # B*HW*C'
+        feature_unfold=features_unfold.reshape(batch_size,H*W,-1) # B*HW*C'
+        # print("feature shape is ",feature_unfold.shape)
         features_unfold = self.mlp2(features_unfold)
-        # feature_unfold=feature_unfold.transpose(1,2)
+        features_unfold=feature_unfold.transpose(1,2).contiguous()
         features_unfold = self.bn2(features_unfold)
         features_unfold = self.relu2(features_unfold)
 
-        features = torch.zeros(
-            batch_size, H * W, self.out_channels, dtype=x.dtype, device=x.device)
-        features[mask_unfold] = features_unfold
-        features = features.transpose(1, 2).contiguous()
-        features = self.fold(features)  # B*C''*H*W
+
+        # features = features_unfold.transpose(1, 2).contiguous()
+        features = self.fold(features_unfold)  # B*C''*H*W
 
         return features
 
@@ -333,19 +336,27 @@ def main():
     #net = EdgeConvKernel(32, 32, (48, 512), reduced=False,
     #                     use_mask=True).cuda()
     from easydict import EasyDict
-    H = 48 * 2
-    W = 512 * 2
-    r = 0.8
+    H = 48*2
+    W = 512*2
+    r = 0.5
     meta_cfg = {
         'META_CHANNELS': 4,
         'INPUT_CHANNELS': 32,
         'OUTPUT_CHANNELS': 32,
         'USE_MASK': True,
         'USE_ATTENTION': True,
-        'REDUCED': True,
+        'REDUCED': False,
         'FEATURE_MAP_SIZE': (H, W)
             }
-    net = MetaKernel(EasyDict(meta_cfg)).cuda()
+
+    edge_cfg={
+        'INPUT_CHANNELS': 32,
+        'OUTPUT_CHANNELS': 32,
+        'USE_MASK': True,
+        'REDUCED': True,
+        'FEATURE_MAP_SIZE': (H, W)}
+    # net = MetaKernel(EasyDict(meta_cfg)).cuda()
+    net=EdgeConvKernel(EasyDict(edge_cfg)).cuda()
 
     inp = torch.randn(1, 35, H, W).cuda()
     mask = torch.ones((1, 1, H, W)).cuda().to(torch.bool)
@@ -355,7 +366,7 @@ def main():
     for i in range(100):
         torch.cuda.synchronize()
         t1 = time.time()
-        out1 = net(inp, mask)
+        out = net(inp, mask)
         # out2=net(inp,mask,reduced=True)
         # print("out1 equal out2 ",torch.equal(out1,out2))
         # print("diff is ",(out2-out1)[:,0,:10,:10])
