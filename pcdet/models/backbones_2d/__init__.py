@@ -4,6 +4,7 @@ from .unet import UNET, SALSANEXT
 from .range_to_bev import RangeToBEV
 from .bev_encoder import BaseBEVEncoder
 from .bev_decoder import BaseBEVDecoder, ConcatBEVDecoder
+from .ran_bev_backbone import ResidualAttentionBEVBackbone
 
 __all__ = {
     'BaseBEVBackbone': BaseBEVBackbone,
@@ -14,5 +15,6 @@ __all__ = {
     'RangeToBEV': RangeToBEV,
     'BaseBEVEncoder': BaseBEVEncoder,
     'BaseBEVDecoder': BaseBEVDecoder,
-    'ConcatBEVDecoder': ConcatBEVDecoder
+    'ConcatBEVDecoder': ConcatBEVDecoder,
+    'ResidualAttentionBEVBackbone': ResidualAttentionBEVBackbone
 }
