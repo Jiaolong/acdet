@@ -22,6 +22,7 @@ class MetaKernel(nn.Module):
         self.use_attention = kernel_cfg.USE_ATTENTION
         self.reduced = kernel_cfg.REDUCED
         self.residual=kernel_cfg.get('RESIDUAL',False)
+        self.remask=kernel_cfg.get('REMASK',False)
 
         if self.reduced:
             assert self.use_mask, "reduced must required use_mask is True"
@@ -85,6 +86,9 @@ class MetaKernel(nn.Module):
             weights = f.softmax(weights, dim=-1)
             weights = weights.unsqueeze(-1)
 
+        if self.remask:
+            weights=weights*m_unfold
+
         if self.residual:
             weights=1+weights
 
@@ -138,7 +142,8 @@ class MetaKernel(nn.Module):
             weights = weights.squeeze(-1)
             weights = f.softmax(weights, dim=-1)
             weights = weights.unsqueeze(-1)
-
+        if self.remask:
+            weights=weights*m_unfold
         if self.residual:
             weights=1+weights
         features_unfold = weights*features_unfold  # B*HW*9*C'
@@ -323,10 +328,10 @@ class EdgeConvKernel(nn.Module):
             2, 3).contiguous().reshape(batch_size,-1,9)  #B*HWC*9
         features_unfold = self.maxpool(features_unfold).squeeze(-1)  # B*HWC
 
-        feature_unfold=features_unfold.reshape(batch_size,H*W,-1) # B*HW*C'
+        features_unfold=features_unfold.reshape(batch_size,H*W,-1) # B*HW*C'
         # print("feature shape is ",feature_unfold.shape)
         features_unfold = self.mlp2(features_unfold)
-        features_unfold=feature_unfold.transpose(1,2).contiguous()
+        features_unfold=features_unfold.transpose(1,2).contiguous()
         features_unfold = self.bn2(features_unfold)
         features_unfold = self.relu2(features_unfold)
 

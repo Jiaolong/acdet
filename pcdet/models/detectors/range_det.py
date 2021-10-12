@@ -68,8 +68,7 @@ class RangeDet(Detector3DTemplate):
             return None, model_info_dict
 
         range_to_bev_module = backbones_2d.__all__[self.model_cfg.RANGE_TO_BEV.NAME](
-            model_cfg = self.model_cfg.RANGE_TO_BEV
-        )
+            model_cfg = self.model_cfg.RANGE_TO_BEV)
 
         model_info_dict['module_list'].append(range_to_bev_module)
         return range_to_bev_module, model_info_dict

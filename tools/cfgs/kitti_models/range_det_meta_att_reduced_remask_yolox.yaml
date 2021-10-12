@@ -66,7 +66,8 @@ MODEL:
             FEATURE_MAP_SIZE: [48, 512]
             USE_ATTENTION: True
             USE_MASK: True
-            REDUCED: FALSE
+            REDUCED: True
+            REMASK: True
 
     RANGE_TO_BEV:
         NAME: RangeToBEV
@@ -74,12 +75,10 @@ MODEL:
             TYPE: 'BEV'
             POINT_CLOUD_RANGE: [0, -39.68, -3, 69.12, 39.68, 1]
             VOXEL_SIZE: [0.16, 0.16, 4]
-        COMPLETE_CHANNEL: 32
-        FUSE_COMPLETE_POINTS: True
 
     BACKBONE_BEV:
         NAME: BaseBEVBackbone
-        INPUT_CHANNELS: 64
+        INPUT_CHANNELS: 32
         LAYER_NUMS: [3, 5, 5]
         LAYER_STRIDES: [2, 2, 2]
         NUM_FILTERS: [64, 128, 256]
