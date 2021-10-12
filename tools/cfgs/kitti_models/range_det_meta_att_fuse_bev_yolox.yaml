@@ -80,10 +80,10 @@ MODEL:
             VOXEL_SIZE: [0.16, 0.16, 4]
 
     BACKBONE_BEV:
-        NAME: BaseBEVBackbone_Scale
+        NAME: FuseBEVBackbone
         INPUT_CHANNELS: 32
-        SCALE_INPUT_CHANNELS: 3
-        SCALE_FEATURES_NAME: 'points_img_bev'
+        BEV_INPUT_CHANNELS: 3
+        BEV_FEATURE_CHANNELS: 16
         LAYER_NUMS: [3, 5, 5]
         SFM_LAYER_NUMS: [3, 5, 5]
         LAYER_STRIDES: [2, 2, 2]
