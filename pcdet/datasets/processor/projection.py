@@ -3,7 +3,7 @@ import torch
 from torch.nn import functional as F
 
 from ...utils.common_utils import check_numpy_to_torch
-
+from ...ops.roiaware_pool3d import roiaware_pool3d_utils
 class PointProjection(object):
     """Project 3d points to 2d plane
     
@@ -14,7 +14,7 @@ class PointProjection(object):
     def __init__(self, project_cfg):
         proj_type = project_cfg['TYPE']
         self.proj_type = proj_type
-
+        self.remove_empty_bboxes=project_cfg.get('REMOVE_EMPTY_BBOXES',False)
         if proj_type == 'spherical':
             self.projector = SphericalProjector(project_cfg)
         elif proj_type == 'cylindrical':
@@ -24,7 +24,7 @@ class PointProjection(object):
         else:
             raise ValueError("Unknown projection type: {}".format(proj_type))
 
-    def project(self, points):
+    def project(self, points,data_dict):
         """Call function to project 3d points to 2d plane
 
         Args:
@@ -33,8 +33,43 @@ class PointProjection(object):
         Returns:
             dict: Results after projection
         """
+        # from tools.visual_utils.cloud_viewer import draw_lidar
         points = torch.from_numpy(points)
-        results = self.projector.do_projection(points)
+
+        # draw_lidar(points.numpy()[:,:3],'before')
+        results = self.projector.do_projection(points,data_dict)
+
+        if self.remove_empty_bboxes and ('gt_boxes' in data_dict):
+            gt_bboxes= data_dict['gt_boxes']
+            num_boxes = len(gt_bboxes)
+            if 'gt_boxes_mask' in data_dict:
+                gt_boxes_mask=data_dict['gt_boxes_mask']
+            else:
+                gt_boxes_mask = np.array([True] * num_boxes, dtype=np.bool_)
+            # point_masks =roiaware_pool3d_utils.points_in_boxes_gpu(points.unsqueeze(0)[:,:,:3].cuda(),
+            #                                                        gt_bboxes_torch.unsqueeze(0).cuda()).squeeze(0).cpu().numpy()
+            new_points = results["points_img"].permute(1,2,0).contiguous()
+            new_mask = results["proj_masks"]
+            new_points = new_points[new_mask][:,:3]
+            new_point_masks = roiaware_pool3d_utils.points_in_boxes_cpu(new_points.numpy(),
+                                                                        gt_bboxes[:,:7])
+            # colors=np.ones(new_points.shape)
+            # colors[new_point_masks>=0]=np.array([0,1,0])
+            # draw_lidar(new_points.numpy(),"after",colors=colors)
+
+            for i in range(num_boxes):
+                # box_point_num_before = point_masks[point_masks == i].shape[0]
+                box_point_num_after = new_point_masks[new_point_masks == i].shape[0]
+                if box_point_num_after == 0:
+                    gt_boxes_mask[i] = False
+
+            data_dict['gt_boxes']=gt_bboxes[gt_boxes_mask]
+        if self.proj_type=="bev":
+            data_dict['points_img_bev'] = results['points_img'].numpy()
+            data_dict['proj_masks_bev'] = results['proj_masks'].numpy()
+        else:
+            data_dict['points_img'] = results['points_img'].numpy()
+            data_dict['proj_masks'] = results['proj_masks'].numpy()
 
         return results
 
@@ -115,7 +150,7 @@ class ProjectionBase(object):
         return points_out.numpy() if is_numpy else points_out
     
 
-    def do_projection(self, points):
+    def do_projection(self, points,data_dict):
         """ 
         Scan unfolding of point cloud of shape N x 4
         This functions performs a cylindrical or Spherical projection of a 3D point cloud given in cartesian coordinates.
@@ -128,7 +163,9 @@ class ProjectionBase(object):
         output = {}
         dim = points.shape[1]
         assert dim >= 3
-
+        rot_offset = data_dict.get("noise_rotation",0)
+        self.fov_right += rot_offset
+        self.fov_left += rot_offset
         proj_col, mask_col = self.get_cols(points)
         proj_row, mask_row = self.get_rows(points)
 
@@ -140,11 +177,10 @@ class ProjectionBase(object):
         points = points[mask_all > 0]
 
         # Get depth of all points for ordering.
-        # points_depth = np.linalg.norm(points[:, :2], 2, axis=1)
         points_depth = self.get_depth(points)
         
         # Get the indices in order of decreasing depth.
-        indices = np.arange(points_depth.shape[0])
+        indices = torch.arange(points_depth.shape[0])
         order = torch.argsort(points_depth, descending=True)
 
         indices = indices[order]
@@ -179,6 +215,8 @@ class ProjectionBase(object):
             exit(0)
 
         output['points_img'] = points_img.permute(2, 0, 1).contiguous() # C, H, W
+        self.fov_right -= rot_offset
+        self.fov_left -= rot_offset
         return output
 
 class BEVProjector(ProjectionBase):
@@ -282,10 +320,10 @@ class BEVProjector(ProjectionBase):
         proj_features = proj_features / npoints_per_grid
 
         proj_features = proj_features.view(self.num_rows, self.num_cols, dim_output)
-        proj_features = proj_features.permute(2, 0, 1) # dim, h, w -> dim, ny, nx
+        proj_features = proj_features.permute(2, 0, 1).contiguous() # dim, h, w -> dim, ny, nx
         return proj_features
 
-    def do_projection(self, points):
+    def do_projection(self, points,data_dict):
         """ 
         Scan unfolding of point cloud of shape [N, (x,y,z)]
 

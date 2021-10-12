@@ -60,7 +60,7 @@ def global_rotation(gt_boxes, points, rot_range):
             np.array([noise_rotation])
         )[0][:, 0:2]
 
-    return gt_boxes, points
+    return gt_boxes, points,noise_rotation
 
 
 def global_scaling(gt_boxes, points, scale_range):
@@ -76,7 +76,7 @@ def global_scaling(gt_boxes, points, scale_range):
     noise_scale = np.random.uniform(scale_range[0], scale_range[1])
     points[:, :3] *= noise_scale
     gt_boxes[:, :6] *= noise_scale
-    return gt_boxes, points
+    return gt_boxes, points,noise_scale
 
 def random_image_flip_horizontal(image, depth_map, gt_boxes, calib):
     """

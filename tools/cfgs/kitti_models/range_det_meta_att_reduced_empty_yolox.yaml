@@ -1,6 +1,6 @@
 CLASS_NAMES: ['Car', 'Pedestrian', 'Cyclist']
 
-DATA_CONFIG: 
+DATA_CONFIG:
     _BASE_CONFIG_: cfgs/dataset_configs/kitti_dataset.yaml
     POINT_CLOUD_RANGE: [0, -39.68, -3, 69.12, 39.68, 1]
     DATA_PROCESSOR:
@@ -22,7 +22,7 @@ DATA_CONFIG:
           NUM_COLS: 512
           NUM_ROWS: 48
           VOXEL_SIZE: [0.16, 0.16, 4]
-          REMOVE_EMPTY_BBOXES: False
+          REMOVE_EMPTY_BBOXES: True
 
     DATA_AUGMENTOR:
         DISABLE_AUG_LIST: ['placeholder']
@@ -53,7 +53,7 @@ DATA_CONFIG:
 
 MODEL:
     NAME: RangeDet
-    
+
     BACKBONE_FV:
         NAME: SALSANEXT
         INPUT_CHANNELS: 5
@@ -66,7 +66,7 @@ MODEL:
             FEATURE_MAP_SIZE: [48, 512]
             USE_ATTENTION: True
             USE_MASK: True
-            REDUCED: FALSE
+            REDUCED: True
 
     RANGE_TO_BEV:
         NAME: RangeToBEV
@@ -92,7 +92,7 @@ MODEL:
         DIR_OFFSET: 0.78539
         DIR_LIMIT_OFFSET: 0.0
         NUM_DIR_BINS: 2
-        
+
         INPUT_CHANNELS: 384
 
         ANCHOR_GENERATOR_CONFIG: [
@@ -139,7 +139,7 @@ MODEL:
 
 
 OPTIMIZATION:
-    BATCH_SIZE_PER_GPU: 8
+    BATCH_SIZE_PER_GPU: 1
     NUM_EPOCHS: 50
 
     OPTIMIZER: adam_onecycle
