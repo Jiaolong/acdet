@@ -60,22 +60,24 @@ class DataAugmentor(object):
         rot_range = config['WORLD_ROT_ANGLE']
         if not isinstance(rot_range, list):
             rot_range = [-rot_range, rot_range]
-        gt_boxes, points = augmentor_utils.global_rotation(
+        gt_boxes, points, noise_rotation = augmentor_utils.global_rotation(
             data_dict['gt_boxes'], data_dict['points'], rot_range=rot_range
         )
 
         data_dict['gt_boxes'] = gt_boxes
         data_dict['points'] = points
+        data_dict['noise_rotation']=noise_rotation
         return data_dict
 
     def random_world_scaling(self, data_dict=None, config=None):
         if data_dict is None:
             return partial(self.random_world_scaling, config=config)
-        gt_boxes, points = augmentor_utils.global_scaling(
+        gt_boxes, points,noise_scale = augmentor_utils.global_scaling(
             data_dict['gt_boxes'], data_dict['points'], config['WORLD_SCALE_RANGE']
         )
         data_dict['gt_boxes'] = gt_boxes
         data_dict['points'] = points
+        data_dict['noise_scale']=noise_scale
         return data_dict
 
     def random_image_flip(self, data_dict=None, config=None):

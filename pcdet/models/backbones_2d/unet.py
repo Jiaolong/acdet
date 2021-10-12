@@ -4,7 +4,7 @@ import torch.nn as nn
 import warnings
 from torch import cuda
 
-from .meta_kernel import MetaKernel,EdgeConvKernel
+from .meta_kernel import MetaKernel,EdgeConvKernel,MetaKernelDualAtt
 from mmdet.models import BACKBONES
 
 
@@ -95,6 +95,8 @@ class SALSANEXT(nn.Module):
             self.kernel = MetaKernel(kernel_cfg)
         elif self.kernel_type=="edge_conv":
             self.kernel=EdgeConvKernel(kernel_cfg)
+        elif self.kernel_type=="meta_dual_att":
+            self.kernel=MetaKernelDualAtt(kernel_cfg)
 
         self.resBlock1 = ResBlock(
             32, 2 * 32, 0.2, pooling=True, drop_out=False)

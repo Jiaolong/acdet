@@ -22,6 +22,7 @@ DATA_CONFIG:
           NUM_COLS: 512
           NUM_ROWS: 48
           VOXEL_SIZE: [0.16, 0.16, 4]
+          REMOVE_EMPTY_BBOXES: False
 
     DATA_AUGMENTOR:
         DISABLE_AUG_LIST: ['placeholder']
@@ -138,8 +139,8 @@ MODEL:
 
 
 OPTIMIZATION:
-    BATCH_SIZE_PER_GPU: 6
-    NUM_EPOCHS: 80
+    BATCH_SIZE_PER_GPU: 8
+    NUM_EPOCHS: 50
 
     OPTIMIZER: adam_onecycle
     LR: 0.003
