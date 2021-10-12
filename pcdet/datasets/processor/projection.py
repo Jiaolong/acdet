@@ -320,7 +320,7 @@ class BEVProjector(ProjectionBase):
         proj_features = proj_features / npoints_per_grid
 
         proj_features = proj_features.view(self.num_rows, self.num_cols, dim_output)
-        proj_features = proj_features.permute(2, 0, 1) # dim, h, w -> dim, ny, nx
+        proj_features = proj_features.permute(2, 0, 1).contiguous() # dim, h, w -> dim, ny, nx
         return proj_features
 
     def do_projection(self, points,data_dict):

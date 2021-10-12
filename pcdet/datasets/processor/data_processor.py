@@ -57,7 +57,7 @@ class DataProcessor(object):
         
         points = data_dict['points']
         point_projector.project(points,data_dict)
-        
+
         return data_dict
 
     def transform_points_to_voxels(self, data_dict=None, config=None, voxel_generator=None):

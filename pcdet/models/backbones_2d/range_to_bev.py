@@ -14,11 +14,16 @@ class RangeToBEV(nn.Module):
         with_raw_features (bool): if True, concatenate raw point feature (x, y, z, intensity) with projected features
     """
 
-    def __init__(self, project_cfg, with_raw_features=False, with_pooling=False, kernel_cfg=None):
+    def __init__(self, project_cfg, with_raw_features=False, complete_channel=32,fuse_complete_points=False,with_pooling=False, kernel_cfg=None):
         super().__init__()
         self.with_raw_features = with_raw_features
+        self.fuse_complete_points=fuse_complete_points
         self.bev_projector = BEVProjector(project_cfg)
-
+        if self.fuse_complete_points:
+            self.complete_net=nn.Sequential(nn.Linear(4,complete_channel,bias=False),
+                                            nn.BatchNorm1d(complete_channel),
+                                            nn.ReLU(inplace=True)
+                                            )
         self.with_pooling = with_pooling
         if self.with_pooling:
             self.pool = nn.AvgPool2d(kernel_size=(3,3), stride=2, padding=1)
@@ -47,12 +52,18 @@ class RangeToBEV(nn.Module):
         x = data_dict['fv_features']
         points_img = data_dict['points_img']
         proj_masks = data_dict['proj_masks']
+        batch_complete_points=data_dict['points']
+
+        if self.fuse_complete_points:
+            batch_complete_features=self.complete_net(batch_complete_points[:,1:5])
+
+        # print("complete points shape is ",complete_points.shape)
 
         batch_size, C, H, W = x.shape
-        x = x.permute(0, 2, 3, 1) # B, H, W, C
+        x = x.permute(0, 2, 3, 1).contiguous() # B, H, W, C
         features_batch = x.view(batch_size, H * W, C) # B, H * W, C
 
-        points_batch = points_img[:, :4].permute(0, 2, 3, 1) # B, H, W, 4
+        points_batch = points_img[:, :4].permute(0, 2, 3, 1).contiguous() # B, H, W, 4
         points_batch = points_batch.view(batch_size, H * W, -1) # B, H * W, 4
 
         proj_masks = proj_masks.view(batch_size, H * W)
@@ -64,10 +75,15 @@ class RangeToBEV(nn.Module):
             mask = proj_masks[k] # H * W
             points = points[mask > 0, :]
             features = features[mask > 0, :]
-            
+
             # project points to BEV
             bev_features = self.bev_projector.get_projected_features(
                     points, features, self.with_raw_features) # C + 4, H2, W2
+            if self.fuse_complete_points:
+                complete_points = batch_complete_points[batch_complete_points[:, 0] == k]
+                complete_features = batch_complete_features[batch_complete_points[:, 0] == k]
+                complete_bev_features=self.bev_projector.get_projected_features(complete_points,complete_features)
+                bev_features=torch.cat([bev_features,complete_bev_features],dim=0)
 
             bev_features_batch.append(bev_features)
         

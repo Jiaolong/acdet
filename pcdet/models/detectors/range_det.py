@@ -68,7 +68,9 @@ class RangeDet(Detector3DTemplate):
             return None, model_info_dict
 
         range_to_bev_module = backbones_2d.__all__[self.model_cfg.RANGE_TO_BEV.NAME](
-            project_cfg=self.model_cfg.RANGE_TO_BEV.PROJECT_CFG
+            project_cfg=self.model_cfg.RANGE_TO_BEV.PROJECT_CFG,
+            complete_channel=self.model_cfg.RANGE_TO_BEV.COMPLETE_CHANNEL,
+            fuse_complete_points=self.model_cfg.RANGE_TO_BEV.FUSE_COMPLETE_POINTS
         )
 
         model_info_dict['module_list'].append(range_to_bev_module)
