@@ -2,6 +2,8 @@ import numpy as np
 import torch
 import torch.nn as nn
 
+from .cross_attention import CrossAttention
+
 class ResContextBlock(nn.Module):
     def __init__(self, in_filters, out_filters):
         super(ResContextBlock, self).__init__()
@@ -42,6 +44,12 @@ class FuseBEVBackbone(nn.Module):
         bev_input_channels = self.model_cfg.get('BEV_INPUT_CHANNELS', 3)
         bev_feat_channels = self.model_cfg.get('BEV_FEATURE_CHANNELS', 16)
         self.bev_context = ResContextBlock(bev_input_channels, bev_feat_channels)
+       
+        self.use_cross_attention = self.model_cfg.get('USE_CROSS_ATTENTION', False)
+
+        if self.use_cross_attention:
+            self.cross_attention = CrossAttention(dim_query=input_channels, 
+                    dim_key=bev_feat_channels, dim_feat=64, groups=1)
 
         if self.model_cfg.get('LAYER_NUMS', None) is not None:
             assert len(self.model_cfg.LAYER_NUMS) == len(self.model_cfg.LAYER_STRIDES) == len(self.model_cfg.NUM_FILTERS)
@@ -59,7 +67,11 @@ class FuseBEVBackbone(nn.Module):
             upsample_strides = num_upsample_filters = []
 
         num_levels = len(layer_nums)
-        c_in_list = [input_channels + bev_feat_channels, *num_filters[:-1]]
+        if self.use_cross_attention:
+            c_in_list = [input_channels, *num_filters[:-1]]
+        else:
+            c_in_list = [input_channels + bev_feat_channels, *num_filters[:-1]]
+
         self.blocks = nn.ModuleList()
         self.deblocks = nn.ModuleList()
         for idx in range(num_levels):
@@ -122,12 +134,17 @@ class FuseBEVBackbone(nn.Module):
         """
         spatial_features = data_dict['spatial_features']
         points_img_bev = data_dict['points_img_bev']
+        proj_masks_bev = data_dict['proj_masks_bev']
         
         bev_features = self.bev_context(points_img_bev)
 
         ups = []
         ret_dict = {}
-        x = torch.cat([spatial_features, bev_features], dim=1)
+        
+        if self.use_cross_attention:
+            x = self.cross_attention(spatial_features, bev_features, proj_masks_bev)
+        else:
+            x = torch.cat([spatial_features, bev_features], dim=1)
 
         for i in range(len(self.blocks)):
             x = self.blocks[i](x)
