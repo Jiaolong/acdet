@@ -8,6 +8,7 @@ from .second_net_iou import SECONDNetIoU
 from .caddn import CaDDN
 from .voxel_rcnn import VoxelRCNN
 from .range_det import RangeDet
+from .range_det_fusion import RangeDetFusion
 
 __all__ = {
     'Detector3DTemplate': Detector3DTemplate,
@@ -16,6 +17,7 @@ __all__ = {
     'PVRCNN': PVRCNN,
     'PointPillar': PointPillar,
     'RangeDet': RangeDet,
+    'RangeDetFusion': RangeDetFusion,
     'PointRCNN': PointRCNN,
     'SECONDNetIoU': SECONDNetIoU,
     'CaDDN': CaDDN,
