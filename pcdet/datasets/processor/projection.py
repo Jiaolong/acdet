@@ -195,7 +195,7 @@ class ProjectionBase(object):
 
                 
         proj_point_indices = -1.0 * points.new_ones(self.num_rows, self.num_cols)
-        proj_point_indices[proj_row, proj_col] = points.new_tensor(indices)
+        proj_point_indices[proj_row, proj_col] = indices.float()
         # output["proj_point_indices"] = proj_point_indices
         proj_masks = (proj_point_indices != -1)
         output["proj_masks"] = proj_masks 
