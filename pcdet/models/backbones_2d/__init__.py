@@ -3,7 +3,8 @@ from .fuse_bev_backbone import FuseBEVBackbone, FusePillarBackbone
 from .unet import UNET, SALSANEXT
 from .range_to_bev import RangeToBEV
 from .bev_encoder import BaseBEVEncoder
-from .bev_decoder import BaseBEVDecoder, ConcatBEVDecoder, CrossViewTransformerBEVDecoder
+from .bev_decoder import BaseBEVDecoder, ConcatBEVDecoder
+from .bev_decoder import CrossViewTransformerBEVDecoder, CrossViewAttentionBEVDecoder
 from .ran_bev_backbone import ResidualAttentionBEVBackbone
 
 __all__ = {
@@ -18,5 +19,6 @@ __all__ = {
     'BaseBEVDecoder': BaseBEVDecoder,
     'ConcatBEVDecoder': ConcatBEVDecoder,
     'CrossViewTransformerBEVDecoder': CrossViewTransformerBEVDecoder,
+    'CrossViewAttentionBEVDecoder': CrossViewAttentionBEVDecoder,
     'ResidualAttentionBEVBackbone': ResidualAttentionBEVBackbone
 }

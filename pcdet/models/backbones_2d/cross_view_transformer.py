@@ -15,6 +15,42 @@ def feature_selection(input, dim, index):
     index = index.view(views).expand(expanse)
     return torch.gather(input, dim, index)
 
+class CrossViewAttention(nn.Module):
+    def __init__(self, in_dim, feat_dim=None):
+        super(CrossViewAttention, self).__init__()
+
+        out_dim = in_dim // 2 if feat_dim is None else feat_dim
+
+        self.query_conv = nn.Conv2d(
+            in_channels=in_dim, out_channels=out_dim, kernel_size=1)
+        self.key_conv = nn.Conv2d(
+            in_channels=in_dim, out_channels=out_dim, kernel_size=1)
+
+        self.value_conv = nn.Conv2d(
+            in_channels=in_dim, out_channels=in_dim, kernel_size=1)
+        
+        self.att_conv = nn.Conv2d(
+            in_channels=out_dim * 2, out_channels=1, kernel_size=1)
+
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, rv_x, bev_x):
+        """
+        Args:
+            rv_x (torch.Tensor): range view feature map, they qury feature
+            bev_x (torch.Tensor): BEV feature map
+        """
+        batch_size, C, H, W = rv_x.size()
+        proj_query = self.query_conv(rv_x)
+        proj_key = self.key_conv(bev_x)
+        proj_value = self.value_conv(bev_x)
+        
+        x = torch.cat([proj_query, proj_key], dim=1)
+        x = self.att_conv(x)
+        attention = self.sigmoid(x)
+        output = rv_x + attention * proj_value
+
+        return output
 
 class CrossViewTransformer(nn.Module):
     def __init__(self, in_dim, feat_dim=None, use_feature_selection=False):
@@ -80,6 +116,7 @@ if __name__ == '__main__':
     H, W = 248 // 2, 216 // 2
     rv_x = torch.rand(4, dim, H, W)
     bev_x = torch.rand(4, dim, H, W)
-    cross_view = CrossViewTransformer(dim, use_feature_selection=False)
+    #cross_view = CrossViewTransformer(dim, use_feature_selection=False)
+    cross_view = CrossViewAttention(dim)
     out = cross_view(rv_x, bev_x)
     print(out.shape)
