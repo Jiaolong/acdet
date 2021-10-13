@@ -99,6 +99,26 @@ def nms_gpu(boxes, scores, thresh, pre_maxsize=None, **kwargs):
     return order[keep[:num_out].cuda()].contiguous(), None
 
 
+def nms_weighted_gpu(boxes, scores, thresh, pre_maxsize=None, post_max_size=None, **kwargs):
+    # order = scores.sort(0, descending=True)[1]
+    # if pre_maxsize is not None:
+    #     order = order[:pre_maxsize]
+    # boxes = boxes[order].contiguous()
+
+    keep = torch.zeros(boxes.size(0), dtype=torch.long)
+    num_out = iou3d_nms_cuda.nms_gpu(boxes, keep, thresh)
+    # keep = order[keep[:num_out].cuda(boxes.device)].contiguous()
+    keep = keep[:num_out].cuda(boxes.device).contiguous()
+    if post_max_size is not None:
+        keep = keep[:post_max_size]
+    
+    if boxes.size(0) > 0:
+        iou = boxes_iou_bev(boxes[keep], boxes)
+        weights = (iou >= 0.8) * iou * scores[None]
+        boxes[keep, :-1] = torch.mm(weights, boxes[:, :-1]).float() / (weights.sum(1, keepdim=True))
+
+    return boxes, keep
+    
 def nms_normal_gpu(boxes, scores, thresh, **kwargs):
     """
     :param boxes: (N, 7) [x, y, z, dx, dy, dz, heading]
