@@ -120,7 +120,7 @@ class SimOTATargetAssigner(object):
         assert num_anchor == num_boxes
         
         valid_mask, is_in_boxes_and_center = self.get_in_gt_and_in_center_info(
-            anchors, gt_boxes)
+            anchors, gt_boxes, gt_classes - 1)
          
         valid_boxes = box_preds[valid_mask]
         valid_scores = cls_preds[valid_mask]
@@ -184,14 +184,28 @@ class SimOTATargetAssigner(object):
 
         return cls_labels, reg_targets, iou_targets, reg_weights
 
-    def get_in_gt_and_in_center_info(self, anchors, gt_boxes):
+    def get_in_gt_and_in_center_info(self, anchors, gt_boxes, gt_classes):
         """
         Args:
             anchors: (N, 7) [x, y, z, dx, dy, dz, heading]
             gt_boxes: (M, 7) [x, y, z, dx, dy, dz, heading]
         """
         MARGIN = 1e-2
+        num_anchors = anchors.size(0)
         num_gt = gt_boxes.size(0)
+        
+        if isinstance(self.center_radius, list):
+            # class specific center radius
+            center_radius = anchors.new_zeros((num_anchors, num_gt))
+            for i in range(num_gt):
+                cls_id = gt_classes[i].long()
+                center_radius[:, i] = self.center_radius[cls_id]
+        elif self.center_radius <= 0:
+            # adaptive center radius
+            center_radius = 0.5 * torch.minimum(gt_boxes[:, 3], gt_boxes[:, 4]) # (M, )
+            center_radius = center_radius.unsqueeze(0).repeat(num_anchors, 1)
+        else:
+            center_radius = self.center_radius
 
         repeated_x = anchors[:, 0].unsqueeze(1).repeat(1, num_gt)  # (N, M)
         repeated_y = anchors[:, 1].unsqueeze(1).repeat(1, num_gt)  # (N, M)
@@ -210,7 +224,7 @@ class SimOTATargetAssigner(object):
             rot_y < (gt_boxes[:, 4] / 2 + MARGIN))
         is_in_gts_all = is_in_gts.sum(dim=1) > 0
 
-        is_in_cts = (rot_x < self.center_radius) & (rot_y < self.center_radius)
+        is_in_cts = (rot_x < center_radius) & (rot_y < center_radius)
         is_in_cts_all = is_in_cts.sum(dim=1) > 0
 
         # in boxes or in centers, shape: [N]

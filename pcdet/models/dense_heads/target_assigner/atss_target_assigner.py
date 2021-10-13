@@ -13,7 +13,12 @@ class ATSSTargetAssigner(object):
         self.box_coder = box_coder
         self.match_height = match_height
 
-    def assign_targets(self, anchors_list, gt_boxes_with_classes, use_multihead=False):
+    def assign_targets(self, 
+            anchors_list, 
+            gt_boxes_with_classes, 
+            batch_cls_preds=None,
+            batch_box_preds=None,
+            use_multihead=False):
         """
         Args:
             anchors: [(N, 7), ...]
@@ -26,7 +31,7 @@ class ATSSTargetAssigner(object):
             single_set_of_anchor = True
         else:
             single_set_of_anchor = len(anchors_list) == 1
-        cls_labels_list, reg_targets_list, reg_weights_list = [], [], []
+        cls_labels_list, reg_targets_list, iou_targets_list, reg_weights_list = [], [], [], []
         for anchors in anchors_list:
             batch_size = gt_boxes_with_classes.shape[0]
             gt_classes = gt_boxes_with_classes[:, :, -1]
@@ -35,7 +40,7 @@ class ATSSTargetAssigner(object):
                 anchors = anchors.permute(3, 4, 0, 1, 2, 5).contiguous().view(-1, anchors.shape[-1])
             else:
                 anchors = anchors.view(-1, anchors.shape[-1])
-            cls_labels, reg_targets, reg_weights = [], [], []
+            cls_labels, reg_targets, iou_targets, reg_weights = [], [], [], []
             for k in range(batch_size):
                 cur_gt = gt_boxes[k]
                 cnt = cur_gt.__len__() - 1
@@ -44,30 +49,35 @@ class ATSSTargetAssigner(object):
                 cur_gt = cur_gt[:cnt + 1]
 
                 cur_gt_classes = gt_classes[k][:cnt + 1]
-                cur_cls_labels, cur_reg_targets, cur_reg_weights = self.assign_targets_single(
+                cur_cls_labels, cur_reg_targets, cur_iou_targets, cur_reg_weights = self.assign_targets_single(
                     anchors, cur_gt, cur_gt_classes
                 )
                 cls_labels.append(cur_cls_labels)
                 reg_targets.append(cur_reg_targets)
+                iou_targets.append(cur_iou_targets)
                 reg_weights.append(cur_reg_weights)
 
             cls_labels = torch.stack(cls_labels, dim=0)
             reg_targets = torch.stack(reg_targets, dim=0)
+            iou_targets = torch.stack(iou_targets, dim=0)
             reg_weights = torch.stack(reg_weights, dim=0)
             cls_labels_list.append(cls_labels)
             reg_targets_list.append(reg_targets)
+            iou_targets_list.append(iou_targets)
             reg_weights_list.append(reg_weights)
 
         if single_set_of_anchor:
             ret_dict = {
                 'box_cls_labels': cls_labels_list[0],
                 'box_reg_targets': reg_targets_list[0],
+                'box_iou_targets': iou_targets_list[0],
                 'reg_weights': reg_weights_list[0]
             }
         else:
             ret_dict = {
                 'box_cls_labels': torch.cat(cls_labels_list, dim=1),
                 'box_reg_targets': torch.cat(reg_targets_list, dim=1),
+                'box_iou_targets': torch.cat(iou_targets_list, dim=1),
                 'reg_weights': torch.cat(reg_weights_list, dim=1)
             }
         return ret_dict
@@ -130,6 +140,7 @@ class ATSSTargetAssigner(object):
         cls_labels = gt_classes[anchors_to_gt_indexs]
         cls_labels[anchors_to_gt_values == INF] = 0
         matched_gts = gt_boxes[anchors_to_gt_indexs]
+        iou_targets = anchors_to_gt_values
 
         pos_mask = cls_labels > 0
         reg_targets = matched_gts.new_zeros((num_anchor, self.box_coder.code_size))
@@ -138,4 +149,4 @@ class ATSSTargetAssigner(object):
             reg_targets[pos_mask > 0] = self.box_coder.encode_torch(matched_gts[pos_mask > 0], anchors[pos_mask > 0])
             reg_weights[pos_mask] = 1.0
 
-        return cls_labels, reg_targets, reg_weights
+        return cls_labels, reg_targets, iou_targets, reg_weights
