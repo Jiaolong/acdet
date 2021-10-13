@@ -5,7 +5,7 @@ import torch.nn as nn
 class PointPillarScatter(nn.Module):
     def __init__(self, model_cfg, grid_size, **kwargs):
         super().__init__()
-
+        self.feature_name = model_cfg.get('OUT_FEATURE_NAME', 'spatial_features')
         self.model_cfg = model_cfg
         self.num_bev_features = self.model_cfg.NUM_BEV_FEATURES
         self.nx, self.ny, self.nz = grid_size
@@ -33,7 +33,8 @@ class PointPillarScatter(nn.Module):
 
         batch_spatial_features = torch.stack(batch_spatial_features, 0)
         batch_spatial_features = batch_spatial_features.view(batch_size, self.num_bev_features * self.nz, self.ny, self.nx)
-        batch_dict['spatial_features'] = batch_spatial_features
+        batch_dict[self.feature_name] = batch_spatial_features
+
         return batch_dict
 
 class PointPillarScatter_Scale(nn.Module):
