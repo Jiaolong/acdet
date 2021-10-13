@@ -5,6 +5,7 @@ from .range_to_bev import RangeToBEV
 from .bev_encoder import BaseBEVEncoder
 from .bev_decoder import BaseBEVDecoder, ConcatBEVDecoder
 from .bev_decoder import CrossViewTransformerBEVDecoder, CrossViewAttentionBEVDecoder
+from .bev_decoder import ConcatPillarCtxDecoder
 from .ran_bev_backbone import ResidualAttentionBEVBackbone
 
 __all__ = {
@@ -18,6 +19,7 @@ __all__ = {
     'BaseBEVEncoder': BaseBEVEncoder,
     'BaseBEVDecoder': BaseBEVDecoder,
     'ConcatBEVDecoder': ConcatBEVDecoder,
+    'ConcatPillarCtxDecoder': ConcatPillarCtxDecoder,
     'CrossViewTransformerBEVDecoder': CrossViewTransformerBEVDecoder,
     'CrossViewAttentionBEVDecoder': CrossViewAttentionBEVDecoder,
     'ResidualAttentionBEVBackbone': ResidualAttentionBEVBackbone

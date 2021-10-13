@@ -1,5 +1,5 @@
 from ..backbones_2d import map_to_bev
-from ..backbones_3d import vfe
+from ..backbones_3d import vfe, cfe
 from .. import backbones_2d, dense_heads, roi_heads
 from .detector3d_template import Detector3DTemplate
 
@@ -16,12 +16,18 @@ class RangeDetFusion(Detector3DTemplate):
 
         if self.map_to_bev:
             batch_dict = self.map_to_bev(batch_dict)
+       
+        if self.cfe:
+            batch_dict = self.cfe(batch_dict)
 
         batch_dict = self.backbone_fv(batch_dict)
         batch_dict = self.range_to_bev(batch_dict)
 
         batch_dict = self.bev_encoder_1(batch_dict)
-        batch_dict = self.bev_encoder_2(batch_dict)
+
+        if self.bev_encoder_2:
+            batch_dict = self.bev_encoder_2(batch_dict)
+
         batch_dict = self.bev_decoder(batch_dict)
 
         batch_dict = self.dense_head(batch_dict)
@@ -51,6 +57,8 @@ class RangeDetFusion(Detector3DTemplate):
         self.vfe, model_info_dict = self.build_vfe(model_info_dict)
         self.map_to_bev, model_info_dict = self.build_map_to_bev_module(model_info_dict)
        
+        self.cfe, model_info_dict = self.build_cfe(model_info_dict)
+
         self.backbone_fv, model_info_dict = self.build_backbone_fv(model_info_dict=model_info_dict)
         self.range_to_bev, model_info_dict = self.build_range_to_bev(model_info_dict=model_info_dict)
 
@@ -60,6 +68,19 @@ class RangeDetFusion(Detector3DTemplate):
 
         self.dense_head, model_info_dict = self.build_dense_head(model_info_dict=model_info_dict)
     
+    def build_cfe(self, model_info_dict):
+        if self.model_cfg.get('CFE', None) is None:
+            return None, model_info_dict
+
+        cfe_module = cfe.__all__[self.model_cfg.CFE.NAME](
+            model_cfg=self.model_cfg.CFE,
+            grid_size=model_info_dict['grid_size'],
+            voxel_size=model_info_dict['voxel_size'],
+            point_cloud_range=model_info_dict['point_cloud_range']
+        )
+        model_info_dict['module_list'].append(cfe_module)
+        return cfe_module, model_info_dict
+
     def build_vfe(self, model_info_dict):
         if self.model_cfg.get('VFE', None) is None:
             return None, model_info_dict
