@@ -252,19 +252,34 @@ class Detector3DTemplate(nn.Module):
                     label_preds = batch_dict[label_key][index]
                 else:
                     label_preds = label_preds + 1
-                selected, selected_scores = model_nms_utils.class_agnostic_nms(
-                    box_scores=cls_preds, box_preds=box_preds,
-                    nms_config=post_process_cfg.NMS_CONFIG,
-                    score_thresh=post_process_cfg.SCORE_THRESH
-                )
+                if post_process_cfg.NMS_CONFIG.NMS_TYPE == "nms_gpu":
+                    selected, selected_scores = model_nms_utils.class_agnostic_nms(
+                        box_scores=cls_preds, box_preds=box_preds,
+                        nms_config=post_process_cfg.NMS_CONFIG,
+                        score_thresh=post_process_cfg.SCORE_THRESH
+                    )
+                    if post_process_cfg.OUTPUT_RAW_SCORE:
+                        max_cls_preds, _ = torch.max(src_cls_preds, dim=-1)
+                        selected_scores = max_cls_preds[selected]
 
-                if post_process_cfg.OUTPUT_RAW_SCORE:
-                    max_cls_preds, _ = torch.max(src_cls_preds, dim=-1)
-                    selected_scores = max_cls_preds[selected]
+                    final_scores = selected_scores
+                    final_labels = label_preds[selected]
+                    final_boxes = box_preds[selected]
 
-                final_scores = selected_scores
-                final_labels = label_preds[selected]
-                final_boxes = box_preds[selected]
+                else:
+                    keep_boxes, selected, selected_scores, selected_indices = model_nms_utils.class_agnostic_weighted_nms(
+                        box_scores=cls_preds, box_preds=box_preds,
+                        nms_config=post_process_cfg.NMS_CONFIG,
+                        score_thresh=post_process_cfg.SCORE_THRESH
+                    )
+
+                    if post_process_cfg.OUTPUT_RAW_SCORE:
+                        max_cls_preds, _ = torch.max(src_cls_preds, dim=-1)
+                        selected_scores = max_cls_preds[selected_indices]
+
+                    final_scores = selected_scores
+                    final_labels = label_preds[selected_indices]
+                    final_boxes = keep_boxes[selected]
 
             recall_dict = self.generate_recall_record(
                 box_preds=final_boxes if 'rois' not in batch_dict else src_box_preds,
