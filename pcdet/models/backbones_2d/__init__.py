@@ -2,7 +2,7 @@ from .base_bev_backbone import BaseBEVBackbone, BaseBEVBackbone_Scale
 from .fuse_bev_backbone import FuseBEVBackbone, FusePillarBackbone
 from .unet import UNET, SALSANEXT
 from .range_to_bev import RangeToBEV
-from .bev_encoder import BaseBEVEncoder
+from .bev_encoder import BaseBEVEncoder, RawBEVEncoder
 from .bev_decoder import BaseBEVDecoder, ConcatBEVDecoder
 from .bev_decoder import CrossViewTransformerBEVDecoder, CrossViewAttentionBEVDecoder
 from .bev_decoder import ConcatPillarCtxDecoder
@@ -19,6 +19,7 @@ __all__ = {
     'SALSANEXT': SALSANEXT,
     'RangeToBEV': RangeToBEV,
     'BaseBEVEncoder': BaseBEVEncoder,
+    'RawBEVEncoder': RawBEVEncoder,
     'BaseBEVDecoder': BaseBEVDecoder,
     'ConcatBEVDecoder': ConcatBEVDecoder,
     'ConcatPillarCtxDecoder': ConcatPillarCtxDecoder,
