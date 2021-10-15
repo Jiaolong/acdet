@@ -34,21 +34,21 @@ class CrossViewAttention(nn.Module):
 
         self.sigmoid = nn.Sigmoid()
 
-    def forward(self, rv_x, bev_x):
+    def forward(self, query_x, ref_x):
         """
         Args:
-            rv_x (torch.Tensor): range view feature map, they qury feature
-            bev_x (torch.Tensor): BEV feature map
+            query_x (torch.Tensor): they qury feature map
+            ref_x (torch.Tensor): they key and value feature map
         """
-        batch_size, C, H, W = rv_x.size()
-        proj_query = self.query_conv(rv_x)
-        proj_key = self.key_conv(bev_x)
-        proj_value = self.value_conv(bev_x)
+        batch_size, C, H, W = query_x.size()
+        proj_query = self.query_conv(query_x)
+        proj_key = self.key_conv(ref_x)
+        proj_value = self.value_conv(ref_x)
         
         x = torch.cat([proj_query, proj_key], dim=1)
         x = self.att_conv(x)
         attention = self.sigmoid(x)
-        output = rv_x + attention * proj_value
+        output = query_x + attention * proj_value
 
         return output
 
@@ -72,40 +72,40 @@ class CrossViewTransformer(nn.Module):
         else:
             self.softmax = nn.Softmax(dim=-1)
 
-    def forward(self, rv_x, bev_x):
+    def forward(self, query_x, ref_x):
         """
         Args:
-            rv_x (torch.Tensor): range view feature map
-            bev_x (torch.Tensor): BEV feature map, they query feature
+            query_x (torch.Tensor): they query feature map
+            ref_x (torch.Tensor): key and value feature map
         """
-        batch_size, C, H, W = rv_x.size()
-        proj_query = self.query_conv(bev_x).view(
+        batch_size, C, H, W = ref_x.size()
+        proj_query = self.query_conv(query_x).view(
             batch_size, -1, H * W)  # B x C x (N)
-        proj_key = self.key_conv(rv_x).view(
+        proj_key = self.key_conv(ref_x).view(
             batch_size, -1, H * W).permute(0, 2, 1)  # B x C x (W*H)
 
-        proj_value = self.value_conv(rv_x).view(
+        proj_value = self.value_conv(ref_x).view(
             batch_size, -1, H * W)  # B x C x N
 
         energy = torch.bmm(proj_key, proj_query)  # transpose check
 
         if self.use_feature_selection:
-            rv_star, rv_star_arg = torch.max(energy, dim=1)
+            ref_star, ref_star_arg = torch.max(energy, dim=1)
 
-            T = feature_selection(proj_value, 2, rv_star_arg).view(
-                rv_star.size(0), -1, H, W)
+            T = feature_selection(proj_value, 2, ref_star_arg).view(
+                ref_star.size(0), -1, H, W)
 
-            S = rv_star.view(rv_star.size(0), 1, H, W)
+            S = ref_star.view(ref_star.size(0), 1, H, W)
 
-            rv_res = torch.cat((rv_x, T), dim=1)
-            rv_res = self.f_conv(rv_res)
-            rv_res = rv_res * S
-            output = rv_x + rv_res
+            ref_res = torch.cat((ref_x, T), dim=1)
+            ref_res = self.f_conv(ref_res)
+            ref_res = ref_res * S
+            output = ref_x + ref_res
         else:
             attention = self.softmax(energy)  # B x N x N
             z = torch.bmm(proj_value, attention.permute(0, 2, 1))
             z = z.view(batch_size, C, H, W)
-            output = bev_x + z
+            output = query_x + z
 
         return output
 
