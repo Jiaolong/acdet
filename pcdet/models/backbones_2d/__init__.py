@@ -4,7 +4,7 @@ from .unet import UNET, SALSANEXT
 from .range_to_bev import RangeToBEV
 from .bev_encoder import BaseBEVEncoder, RawBEVEncoder
 from .bev_decoder import BaseBEVDecoder, ConcatBEVDecoder
-from .bev_decoder import CrossViewTransformerBEVDecoder, CrossViewAttentionBEVDecoder
+from .bev_decoder import CrossViewTransformerBEVDecoder, CrossViewAttentionBEVDecoder, CrossViewTransformerMaskBEVDecoder
 from .bev_decoder import ConcatPillarCtxDecoder
 from .ran_bev_backbone import ResidualAttentionBEVBackbone
 from .softmask_ran_bev_backbone import SoftmaskResidualAttentionBEVBackbone
@@ -27,5 +27,6 @@ __all__ = {
     'CrossViewAttentionBEVDecoder': CrossViewAttentionBEVDecoder,
     'ResidualAttentionBEVBackbone': ResidualAttentionBEVBackbone,
     'SoftmaskResidualAttentionBEVBackbone': SoftmaskResidualAttentionBEVBackbone,
-    'ScaleAttentionBEVBackbone': ScaleAttentionBEVBackbone
+    'ScaleAttentionBEVBackbone': ScaleAttentionBEVBackbone,
+    'CrossViewTransformerMaskBEVDecoder': CrossViewTransformerMaskBEVDecoder
 }

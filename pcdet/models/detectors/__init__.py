@@ -9,6 +9,7 @@ from .caddn import CaDDN
 from .voxel_rcnn import VoxelRCNN
 from .range_det import RangeDet
 from .range_det_fusion import RangeDetFusion
+from .range_det_fusion_mask import RangeDetFusionMask
 
 __all__ = {
     'Detector3DTemplate': Detector3DTemplate,
@@ -18,6 +19,7 @@ __all__ = {
     'PointPillar': PointPillar,
     'RangeDet': RangeDet,
     'RangeDetFusion': RangeDetFusion,
+    'RangeDetFusionMask': RangeDetFusionMask,
     'PointRCNN': PointRCNN,
     'SECONDNetIoU': SECONDNetIoU,
     'CaDDN': CaDDN,
