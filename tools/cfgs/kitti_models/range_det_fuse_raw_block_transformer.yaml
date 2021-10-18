@@ -16,7 +16,7 @@ DATA_CONFIG:
         - NAME: project_points
           TYPE: 'bev'
           POINT_CLOUD_RANGE: [0, -39.68, -3, 69.12, 39.68, 1]
-          VOXEL_SIZE: [0.08, 0.08, 4]
+          VOXEL_SIZE: [0.16, 0.16, 4]
 
         - NAME: project_points
           TYPE: 'cylindrical'
@@ -89,9 +89,8 @@ MODEL:
         # NUM_FILTERS: [64, 128, 256]
     
     BEV_ENCODER_2:
-        NAME: RawBEVEncoder
+        NAME: BaseBEVEncoder
         INPUT_CHANNELS: 3
-        DOWNSAMPLE_INPUT: True
         FEATURE_NAME: 'points_img_bev' 
         LAYER_NUMS: [ 3, 5, 5]
         LAYER_STRIDES: [ 2, 2, 2 ]
@@ -99,7 +98,7 @@ MODEL:
         # NUM_FILTERS: [64, 128, 256]
     
     BEV_DECODER:
-      NAME: CrossViewTransformerBEVDecoder
+      NAME: CrossViewBlockTransformerBEVDecoder
       INPUT_CHANNELS: 64
       NUM_FILTERS: [ 64, 64, 64 ]
       UPSAMPLE_STRIDES: [ 1, 2, 4 ]

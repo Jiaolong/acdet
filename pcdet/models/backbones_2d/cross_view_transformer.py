@@ -37,8 +37,8 @@ class CrossViewAttention(nn.Module):
     def forward(self, query_x, ref_x):
         """
         Args:
-            query_x (torch.Tensor): they qury feature map
-            ref_x (torch.Tensor): they key and value feature map
+            query_x (torch.Tensor): the qury feature map
+            ref_x (torch.Tensor): the key and value feature map
         """
         batch_size, C, H, W = query_x.size()
         proj_query = self.query_conv(query_x)
@@ -49,6 +49,46 @@ class CrossViewAttention(nn.Module):
         x = self.att_conv(x)
         attention = self.sigmoid(x)
         output = query_x + attention * proj_value
+
+        return output
+
+class CrossViewBlockTransformer(nn.Module):
+    def __init__(self, in_dim, feat_dim=None, block_size=4, stride=4):
+        super(CrossViewBlockTransformer, self).__init__()
+
+        self.transformer = CrossViewTransformer(in_dim, feat_dim)
+
+        self.block_size = block_size
+        self.stride = stride
+        self.unfold = nn.Unfold(kernel_size=block_size, stride=stride)
+        # self.fold = nn.Fold(feature_map_size, kernel_size=block_size, dilation=1, padding=1, stride=stride)
+
+    def forward(self, query_x, ref_x):
+        """
+        Args:
+            query_x (torch.Tensor): the query feature map
+            ref_x (torch.Tensor): reference feature map
+        """
+        B, C, H, W = query_x.size()
+        
+        fold = nn.Fold([H, W], kernel_size=self.block_size, stride=self.stride)
+
+        query_unfold = self.unfold(query_x)  # B * C * H * W ---> B * (C * 4 * 4) * (H2 * W2)
+        query_unfold = query_unfold.permute(0, 2, 1)
+        query_unfold = query_unfold.reshape(B * query_unfold.shape[1], C, 
+                self.block_size, self.block_size).contiguous() # (B * H2 * W2) * C * 4 * 4
+
+        C = ref_x.size(1)
+        ref_unfold = self.unfold(ref_x)  # B * C * H * W ---> B * (C * 4 * 4) * (H2 * W2)
+        ref_unfold = ref_unfold.permute(0, 2, 1)
+        ref_unfold = ref_unfold.reshape(B * ref_unfold.shape[1], C,
+                self.block_size, self.block_size).contiguous() # (B * H2 * W2) * C * 4 * 4
+
+        out_unfold = self.transformer(query_unfold, ref_unfold) # (B * H2 * W2) * C2 * 4 * 4
+        out_unfold = out_unfold.reshape(out_unfold.shape[0], -1)
+        out_unfold = out_unfold.reshape(B, -1, out_unfold.shape[-1]) # B * (H2 * W2) * (C2 * 4 * 4)
+        out_unfold = out_unfold.permute(0, 2, 1).contiguous() # B * (C2 * 4 * 4) * (H2 * W2)
+        output = fold(out_unfold)
 
         return output
 
@@ -75,7 +115,7 @@ class CrossViewTransformer(nn.Module):
     def forward(self, query_x, ref_x):
         """
         Args:
-            query_x (torch.Tensor): they query feature map
+            query_x (torch.Tensor): the query feature map
             ref_x (torch.Tensor): key and value feature map
         """
         batch_size, C, H, W = ref_x.size()
