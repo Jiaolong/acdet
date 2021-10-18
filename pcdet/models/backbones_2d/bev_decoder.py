@@ -513,9 +513,9 @@ class CrossViewTransformerMaskBEVDecoder(BaseBEVDecoder):
             nn.Conv2d(c_in, num_upsample_filters[0], 3, padding=1, bias=False),
             nn.BatchNorm2d(num_upsample_filters[0], eps=1e-3, momentum=0.01),
             nn.ReLU(),
-            # nn.Conv2d(num_upsample_filters[0], num_upsample_filters[0], 3, padding=1, bias=False),
-            # nn.BatchNorm2d(num_upsample_filters[0], eps=1e-3, momentum=0.01)
-            # nn.ReLU(),
+            nn.Conv2d(num_upsample_filters[0], num_upsample_filters[0], 3, padding=1, bias=False),
+            nn.BatchNorm2d(num_upsample_filters[0], eps=1e-3, momentum=0.01),
+            nn.ReLU(),
             nn.Conv2d(num_upsample_filters[0], 1, 3, padding=1, bias=False),
             nn.Sigmoid()
         )
@@ -563,7 +563,7 @@ class CrossViewTransformerMaskBEVDecoder(BaseBEVDecoder):
         self.forward_ret_dict["mask"] = mask
         self.forward_ret_dict["gt_mask"] = gt_mask.to(mask.device).unsqueeze(1)
 
-        data_dict['spatial_features_2d'] = x
+        data_dict['spatial_features_2d'] = torch.mul(x, mask) + x
         return data_dict
 
     def get_loss(self):
