@@ -184,12 +184,12 @@ class ConcatBEVDecoder(BaseBEVDecoder):
         data_dict['spatial_features_2d'] = x
         return data_dict
 
-class LateConcatBEVDecoder(BaseBEVDecoder):
+class LateConcatBEVDecoder(nn.Module):
     """
     Concat the output of two individual decoder branches.
     """
     def __init__(self, model_cfg, input_channels):
-        super().__init__(model_cfg=model_cfg, input_channels=input_channels)
+        super().__init__()
         self.model_cfg = model_cfg
         self.feature_names = model_cfg.get('FEATURE_NAMES', [])
         self.with_transformer = model_cfg.get('WITH_TRANSFORMER', False)
@@ -205,7 +205,7 @@ class LateConcatBEVDecoder(BaseBEVDecoder):
             upsample_strides = self.model_cfg.UPSAMPLE_STRIDES
         else:
             upsample_strides = num_upsample_filters = []
-
+        
         self.deblocks_1 = nn.ModuleList()
         self.deblocks_2 = nn.ModuleList()
         for idx in range(self.num_levels):
@@ -265,7 +265,6 @@ class LateConcatBEVDecoder(BaseBEVDecoder):
                 nn.ReLU(),
             ))
         self.num_bev_features = c_in
-
         if self.with_transformer:
             self.transformer = CrossViewBlockTransformer(in_dim=c_in, block_size=4, stride=4)
 
