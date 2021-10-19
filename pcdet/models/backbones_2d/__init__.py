@@ -1,6 +1,7 @@
 from .base_bev_backbone import BaseBEVBackbone, BaseBEVBackbone_Scale
 from .fuse_bev_backbone import FuseBEVBackbone, FusePillarBackbone
-from .unet import UNET, SALSANEXT
+from .fuse_bev_backbone import FuseBEVBackbone
+from .unet import UNET, SALSANEXT, SALSANEXTV2
 from .range_to_bev import RangeToBEV
 from .bev_encoder import BaseBEVEncoder, RawBEVEncoder
 from .bev_decoder import BaseBEVDecoder, ConcatBEVDecoder, LateConcatBEVDecoder
@@ -31,5 +32,6 @@ __all__ = {
     'SoftmaskResidualAttentionBEVBackbone': SoftmaskResidualAttentionBEVBackbone,
     'ScaleAttentionBEVBackbone': ScaleAttentionBEVBackbone,
     'CrossViewTransformerMaskBEVDecoder': CrossViewTransformerMaskBEVDecoder,
-    'CrossViewBlockTransformerBEVDecoder': CrossViewBlockTransformerBEVDecoder
+    'CrossViewBlockTransformerBEVDecoder': CrossViewBlockTransformerBEVDecoder,
+    'SALSANEXTV2': SALSANEXTV2,
 }

@@ -24,6 +24,20 @@ def make_cuda_ext(name, module, sources):
     )
     return cuda_ext
 
+def make_cuda_ext_voxel_layer(name,module,sources):
+    extra_compile_args={}
+    define_macros= [('WITH_CUDA', None)]
+    extra_compile_args['nvcc'] = [
+        '-D__CUDA_NO_HALF_OPERATORS__',
+        '-D__CUDA_NO_HALF_CONVERSIONS__',
+        '-D__CUDA_NO_HALF2_OPERATORS__',]
+    cuda_ext = CUDAExtension(
+        name='%s.%s' % (module, name),
+        sources=[os.path.join(*module.split('.'), src) for src in sources],
+        define_macros = define_macros,
+        extra_compile_args = extra_compile_args
+    )
+    return cuda_ext
 
 def write_version_to_file(version, target_file):
     with open(target_file, 'w') as f:
@@ -126,5 +140,15 @@ if __name__ == '__main__':
 
                 ],
             ),
+            make_cuda_ext_voxel_layer(
+                name='voxel_layer',
+                module='pcdet.ops.voxel',
+                sources=[
+                    'src/voxelization.cpp',
+                    'src/scatter_points_cpu.cpp',
+                    'src/scatter_points_cuda.cu',
+                    'src/voxelization_cpu.cpp',
+                    'src/voxelization_cuda.cu',
+                ])
         ],
     )
