@@ -4,7 +4,7 @@ from torch import nn
 import torch.nn.functional as F
 from pcdet.datasets.processor.projection import BEVProjector
 from pcdet.models.backbones_2d.meta_kernel import EdgeConvKernel, MetaKernel
-from pcdet.ops.voxel import Voxelization,DynamicScatter
+# from pcdet.ops.voxel import Voxelization,DynamicScatter
 from pcdet.models.backbones_2d.map_to_bev import PointPillarScatter
 from easydict import EasyDict
 

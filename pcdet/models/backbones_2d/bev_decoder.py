@@ -466,10 +466,14 @@ class CrossViewBlockTransformerBEVDecoder(BaseBEVDecoder):
         self.num_bev_features = c_in
         
         # global transformer for last layer
-        self.transformer = CrossViewTransformer(in_dim=input_channels)
-        # block-wise transformer for high resolution feature maps
-        self.block_transformer = CrossViewBlockTransformer(
-                query_dim=input_channels, key_dim=input_channels, proj_dim=input_channels, block_size=4, stride=4)
+        # self.transformer = CrossViewTransformer(in_dim=input_channels)
+
+        self.transformers = nn.ModuleList()
+        for idx in range(self.num_levels):
+            # block-wise transformer for high resolution feature maps
+            transformer = CrossViewBlockTransformer(
+                    query_dim=input_channels, key_dim=input_channels, proj_dim=input_channels, block_size=4, stride=4)
+            self.transformers.append(transformer)
 
     def forward(self, data_dict):
         """
@@ -485,10 +489,11 @@ class CrossViewBlockTransformerBEVDecoder(BaseBEVDecoder):
 
             x1 = data_dict['{}_{}x'.format(self.feature_names[0], stride)] # range view
             x2 = data_dict['{}_{}x'.format(self.feature_names[1], stride)] # bev view
-            if i == self.num_levels - 1:
-                x = self.transformer(x1, x2)
-            else:
-                x = self.block_transformer(x1, x2)
+            x = self.transformers[i](x1, x2)
+            #if i == self.num_levels - 1:
+            #    x = self.transformer(x1, x2)
+            #else:
+            #    x = self.block_transformer(x1, x2)
 
             if len(self.deblocks) > 0:
                 ups.append(self.deblocks[i](x))
