@@ -1,3 +1,5 @@
+import copy
+
 import numpy as np
 import torch
 from torch.nn import functional as F
@@ -34,11 +36,14 @@ class PointProjection(object):
             dict: Results after projection
         """
         # from tools.visual_utils.cloud_viewer import draw_lidar
+        # from tools.visual_utils.visualize_utils import draw_scenes
+        # import mayavi.mlab as mlab
+        # has_empty=False
         points = torch.from_numpy(points)
-
-        # draw_lidar(points.numpy()[:,:3],'before')
+        #
+        # # draw_lidar(points.numpy()[:,:3],'before')
         results = self.projector.do_projection(points,data_dict)
-
+        #
         if self.remove_empty_bboxes and ('gt_boxes' in data_dict):
             gt_bboxes= data_dict['gt_boxes']
             num_boxes = len(gt_bboxes)
@@ -51,17 +56,24 @@ class PointProjection(object):
             new_points = results["points_img"].permute(1,2,0).contiguous()
             new_mask = results["proj_masks"]
             new_points = new_points[new_mask][:,:3]
+            gt_bboxes_expand=copy.deepcopy(gt_bboxes[:,:7])
+            gt_bboxes_expand[:,3:5]+=0.20
             new_point_masks = roiaware_pool3d_utils.points_in_boxes_cpu(new_points.numpy(),
-                                                                        gt_bboxes[:,:7])
+                                                                        gt_bboxes_expand)
             # colors=np.ones(new_points.shape)
             # colors[new_point_masks>=0]=np.array([0,1,0])
             # draw_lidar(new_points.numpy(),"after",colors=colors)
-
             for i in range(num_boxes):
                 # box_point_num_before = point_masks[point_masks == i].shape[0]
-                box_point_num_after = new_point_masks[new_point_masks == i].shape[0]
+                box_point_num_after = new_points[new_point_masks[i]>0].shape[0]
                 if box_point_num_after == 0:
                     gt_boxes_mask[i] = False
+                    # has_empty=True
+            # if has_empty:
+            #     draw_scenes(new_points.numpy(),gt_bboxes[:,:7])
+            #     mlab.show()
+            #     draw_scenes(new_points.numpy(),gt_bboxes[gt_boxes_mask][:,:7])
+            #     mlab.show()
 
             data_dict['gt_boxes']=gt_bboxes[gt_boxes_mask]
         if self.proj_type=="bev":
@@ -71,7 +83,6 @@ class PointProjection(object):
             data_dict['points_img'] = results['points_img'].numpy()
             data_dict['proj_masks'] = results['proj_masks'].numpy()
 
-        return results
 
 class ProjectionBase(object):
 
@@ -323,6 +334,47 @@ class BEVProjector(ProjectionBase):
         proj_features = proj_features.view(self.num_rows, self.num_cols, dim_output)
         proj_features = proj_features.permute(2, 0, 1).contiguous() # dim, h, w -> dim, ny, nx
         return proj_features
+
+    def get_projected_features_v2(self, voxel_features, coors, batch_size):
+        """Scatter features of single sample.
+
+               Args:
+                   voxel_features (torch.Tensor): Voxel features in shape (N, M, C).
+                   coors (torch.Tensor): Coordinates of each voxel in shape (N, 4).
+                       The first column indicates the sample ID.
+                   batch_size (int): Number of samples in the current batch.
+               """
+        # batch_canvas will be the final output.
+        batch_canvas = []
+        for batch_itt in range(batch_size):
+            # Create the canvas for this sample
+            canvas = torch.zeros(
+                voxel_features.shape[-1],
+                self.num_cols * self.num_rows,
+                dtype=voxel_features.dtype,
+                device=voxel_features.device)
+            # Only include non-empty pillars
+            batch_mask = coors[:, 0] == batch_itt
+            this_coors = coors[batch_mask, :]
+            indices = this_coors[:, 2] * self.num_cols + this_coors[:, 3]
+            indices = indices.type(torch.long)
+            voxels = voxel_features[batch_mask, :]
+            voxels = voxels.t()
+
+            # Now scatter the blob back to the canvas.
+            canvas[:, indices] = voxels
+
+            # Append to a list for later stacking.
+            batch_canvas.append(canvas)
+
+        # Stack to 3-dim tensor (batch-size, in_channels, nrows*ncols)
+        batch_canvas = torch.stack(batch_canvas, 0)
+
+        # Undo the column stacking to final 4-dim tensor
+        batch_canvas = batch_canvas.view(batch_size, voxel_features.shape[-1], self.num_rows,
+                                         self.num_cols)
+
+        return batch_canvas
 
     def do_projection(self, points,data_dict):
         """ 

@@ -4,7 +4,7 @@ import torch.nn as nn
 import warnings
 from torch import cuda
 
-from .meta_kernel import MetaKernel,EdgeConvKernel,MetaKernelDualAtt
+from .meta_kernel import MetaKernel,EdgeConvKernel,MetaKernelDualAtt,MetaKernelV2,MetaKernelV3
 from mmdet.models import BACKBONES
 
 
@@ -78,7 +78,6 @@ class SALSANEXT(nn.Module):
     def __init__(self,
                  in_channels=5,
                  out_channels=32,
-                 kernel_layer_index=1,
                  kernel_cfg=None):
         super(SALSANEXT, self).__init__()
 
@@ -90,13 +89,21 @@ class SALSANEXT(nn.Module):
         self.kernel_type=None
         if self.use_kernel:
             self.kernel_type=kernel_cfg.pop("TYPE")
-        self.kernel_layer_index =kernel_layer_index
+        if 'KERNEL_LAYER_INDEX' in kernel_cfg:
+            self.kernel_layer_index=kernel_cfg.pop('KERNEL_LAYER_INDEX')
+        else:
+            self.kernel_layer_index=1
+
         if self.kernel_type=="meta":
             self.kernel = MetaKernel(kernel_cfg)
         elif self.kernel_type=="edge_conv":
             self.kernel=EdgeConvKernel(kernel_cfg)
         elif self.kernel_type=="meta_dual_att":
             self.kernel=MetaKernelDualAtt(kernel_cfg)
+        elif self.kernel_type=="meta_v2":
+            self.kernel=MetaKernelV2(kernel_cfg)
+        elif self.kernel_type=="meta_v3":
+            self.kernel=MetaKernelV3(kernel_cfg)
 
         self.resBlock1 = ResBlock(
             32, 2 * 32, 0.2, pooling=True, drop_out=False)
@@ -124,6 +131,17 @@ class SALSANEXT(nn.Module):
         
         x = data_dict['points_img']
         mask = data_dict['proj_masks']
+
+        if self.use_kernel and self.kernel_layer_index == 0:
+            # torch.cuda.synchronize()
+            # t1 = time.time()
+            # mask = (x.sum(dim=1,) > 0).unsqueeze(1)
+            mask = mask.unsqueeze(1)
+            coord = x[:, :3, :, :]
+            downCntx_coord = torch.cat([coord, x], dim=1)
+            x = self.kernel(downCntx_coord, mask)
+            # torch.cuda.synchronize()
+            # print("meta kernel time is ", time.time() - t1)
 
         downCntx = self.downCntx(x)  # N, 32, H, W
 
@@ -172,6 +190,93 @@ class SALSANEXT(nn.Module):
             up1e_coord = torch.cat([coord, up1e], dim=1)
             up1e = self.kernel(up1e_coord, mask)
         
+        data_dict['fv_features'] = up1e
+        return data_dict
+
+
+class SALSANEXTV2(nn.Module):
+    """Backbone network for (range/cylinder/bev) projected points.
+
+    Args:
+        in_channels (int): Input channels.
+        out_channels (int): Output channels.
+        meta_kernel_cfg (dict): Meta kernel config.
+    """
+
+    def __init__(self,
+                 in_channels=5,
+                 out_channels=32,
+                 kernel_layer_index=1,
+                 kernel_cfg=None):
+        super(SALSANEXTV2, self).__init__()
+
+        kernel_cfg1=kernel_cfg2=kernel_cfg3=kernel_cfg
+        kernel_cfg1['DILATION'] = 1
+        kernel_cfg2['DILATION'] = 2
+        kernel_cfg3['DILATION'] = 4
+
+        self.kernel1 = MetaKernel(kernel_cfg1)
+        self.kernel2=MetaKernel(kernel_cfg2)
+        self.kernel3=MetaKernel(kernel_cfg3)
+
+        self.resBlock1 = ResBlock(
+            32, 2 * 32, 0.2, pooling=True, drop_out=False)
+        self.resBlock2 = ResBlock(2 * 32, 2 * 2 * 32, 0.2, pooling=True)
+
+        self.resBlock3 = ResBlock(2 * 2 * 32, 2 * 4 * 32, 0.2, pooling=True)
+        self.resBlock4 = ResBlock(2 * 4 * 32, 2 * 4 * 32, 0.2, pooling=True)
+        self.resBlock5 = ResBlock(2 * 4 * 32, 2 * 4 * 32, 0.2, pooling=False)
+
+        self.upBlock1 = UpBlock(2 * 4 * 32, 4 * 32, 4 * 32 * 2, 0.2)
+        self.upBlock2 = UpBlock(4 * 32, 4 * 32, 4 * 32 * 2, 0.2)
+        self.upBlock3 = UpBlock(4 * 32, 2 * 32, 4 * 32, 0.2)
+        self.upBlock4 = UpBlock(2 * 32, out_channels,
+                                32 * 2, 0.2, drop_out=False)
+
+    def forward(self, data_dict):
+        """Forward function.
+
+        Args:
+            x (torch.Tensor): Input with shape (N, C, H, W).
+
+        Returns:
+            up1e (torch.Tensor): encodered features with shape (N, C2, H, W).
+        """
+
+        x = data_dict['points_img']
+        mask = data_dict['proj_masks']
+        mask = mask.unsqueeze(1)
+        coord = x[:, :3, :, :]
+        downCntx_coord = torch.cat([coord, x], dim=1)
+        x1 = self.kernel1(downCntx_coord, mask)
+        x2=self.kernel2(downCntx_coord,mask)
+        x3=self.kernel3(downCntx_coord,mask)
+        downCntx=x1+x2+x3
+        down0c, down0b = self.resBlock1(downCntx)
+        # down0c.shape: N, 64, H/2, W/2
+        # down0b.shape: N, 32, H, W
+        down1c, down1b = self.resBlock2(down0c)
+        # down1c.shape: N, 128, H/4, W/4
+        # down1b.shape: N, 128, H/2, W/2
+
+        down2c, down2b = self.resBlock3(down1c)
+        # down2c.shape: N, 256, H/8, W/8
+        # down2b.shape: N, 256, H/4, W/4
+        down3c, down3b = self.resBlock4(down2c)
+        # down3c.shape: N, 256, H/16, W/16
+        # down3b.shape: N, 256, H/8, W/8
+        down5c = self.resBlock5(down3c)
+        # down5c.shape: N, 256, H/16, W/16
+
+        up4e = self.upBlock1(down5c, down3b)
+        # up4e: N, 128, H/8, W/8
+        up3e = self.upBlock2(up4e, down2b)
+        # up3e: N, 128, H/4, W/4
+        up2e = self.upBlock3(up3e, down1b)
+        # up2e: N, 64, H/2, W/2
+        up1e = self.upBlock4(up2e, down0b)
+        # up1e: N, 32, H, W
+
         data_dict['fv_features'] = up1e
         return data_dict
 
