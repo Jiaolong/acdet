@@ -468,7 +468,8 @@ class CrossViewBlockTransformerBEVDecoder(BaseBEVDecoder):
         # global transformer for last layer
         self.transformer = CrossViewTransformer(in_dim=input_channels)
         # block-wise transformer for high resolution feature maps
-        self.block_transformer = CrossViewBlockTransformer(in_dim=input_channels, block_size=4, stride=4)
+        self.block_transformer = CrossViewBlockTransformer(
+                query_dim=input_channels, key_dim=input_channels, proj_dim=input_channels, block_size=4, stride=4)
 
     def forward(self, data_dict):
         """
