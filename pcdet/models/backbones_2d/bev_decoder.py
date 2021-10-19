@@ -184,6 +184,142 @@ class ConcatBEVDecoder(BaseBEVDecoder):
         data_dict['spatial_features_2d'] = x
         return data_dict
 
+class LateConcatBEVDecoder(BaseBEVDecoder):
+    """
+    Concat the output of two individual decoder branches.
+    """
+    def __init__(self, model_cfg, input_channels):
+        super().__init__(model_cfg=model_cfg, input_channels=input_channels)
+        self.model_cfg = model_cfg
+        self.feature_names = model_cfg.get('FEATURE_NAMES', [])
+        self.with_transformer = model_cfg.get('WITH_TRANSFORMER', False)
+        if self.model_cfg.get('NUM_FILTERS', None) is not None:
+            num_filters = self.model_cfg.NUM_FILTERS
+        else:
+            num_filters = []
+        self.num_levels = len(num_filters)
+
+        if self.model_cfg.get('UPSAMPLE_STRIDES', None) is not None:
+            assert len(self.model_cfg.UPSAMPLE_STRIDES) == len(self.model_cfg.NUM_UPSAMPLE_FILTERS)
+            num_upsample_filters = self.model_cfg.NUM_UPSAMPLE_FILTERS
+            upsample_strides = self.model_cfg.UPSAMPLE_STRIDES
+        else:
+            upsample_strides = num_upsample_filters = []
+
+        self.deblocks_1 = nn.ModuleList()
+        self.deblocks_2 = nn.ModuleList()
+        for idx in range(self.num_levels):
+            if len(upsample_strides) > 0:
+                stride = upsample_strides[idx]
+                if stride >= 1:
+                    self.deblocks_1.append(nn.Sequential(
+                        nn.ConvTranspose2d(
+                            num_filters[idx], num_upsample_filters[idx],
+                            upsample_strides[idx],
+                            stride=upsample_strides[idx], bias=False
+                        ),
+                        nn.BatchNorm2d(num_upsample_filters[idx], eps=1e-3, momentum=0.01),
+                        nn.ReLU()
+                    ))
+                    self.deblocks_2.append(nn.Sequential(
+                        nn.ConvTranspose2d(
+                            num_filters[idx], num_upsample_filters[idx],
+                            upsample_strides[idx],
+                            stride=upsample_strides[idx], bias=False
+                        ),
+                        nn.BatchNorm2d(num_upsample_filters[idx], eps=1e-3, momentum=0.01),
+                        nn.ReLU()
+                    ))
+
+                else:
+                    stride = np.round(1 / stride).astype(np.int)
+                    self.deblocks_1.append(nn.Sequential(
+                        nn.Conv2d(
+                            num_filters[idx], num_upsample_filters[idx],
+                            stride,
+                            stride=stride, bias=False
+                        ),
+                        nn.BatchNorm2d(num_upsample_filters[idx], eps=1e-3, momentum=0.01),
+                        nn.ReLU()
+                    ))
+                    self.deblocks_2.append(nn.Sequential(
+                        nn.Conv2d(
+                            num_filters[idx], num_upsample_filters[idx],
+                            stride,
+                            stride=stride, bias=False
+                        ),
+                        nn.BatchNorm2d(num_upsample_filters[idx], eps=1e-3, momentum=0.01),
+                        nn.ReLU()
+                    ))
+
+        c_in = sum(num_upsample_filters)
+        if len(upsample_strides) > self.num_levels:
+            self.deblocks_1.append(nn.Sequential(
+                nn.ConvTranspose2d(c_in, c_in, upsample_strides[-1], stride=upsample_strides[-1], bias=False),
+                nn.BatchNorm2d(c_in, eps=1e-3, momentum=0.01),
+                nn.ReLU(),
+            ))
+            self.deblocks_2.append(nn.Sequential(
+                nn.ConvTranspose2d(c_in, c_in, upsample_strides[-1], stride=upsample_strides[-1], bias=False),
+                nn.BatchNorm2d(c_in, eps=1e-3, momentum=0.01),
+                nn.ReLU(),
+            ))
+        self.num_bev_features = c_in
+
+        if self.with_transformer:
+            self.transformer = CrossViewBlockTransformer(in_dim=c_in, block_size=4, stride=4)
+
+    def forward(self, data_dict):
+        """
+        Args:
+            data_dict:
+                spatial_features
+        Returns:
+        """
+        ups_1 = []
+        ups_2 = []
+
+        for i in range(self.num_levels):
+            stride = data_dict['{}_stride_{}'.format(self.feature_names[0], i)]
+
+            x1 = data_dict['{}_{}x'.format(self.feature_names[0], stride)]
+            x2 = data_dict['{}_{}x'.format(self.feature_names[1], stride)]
+
+            if len(self.deblocks_1) > 0:
+                ups_1.append(self.deblocks_1[i](x1))
+            else:
+                ups_1.append(x1)
+
+            if len(self.deblocks_2) > 0:
+                ups_2.append(self.deblocks_2[i](x2))
+            else:
+                ups_2.append(x2)
+
+        if len(ups_1) > 1:
+            x1 = torch.cat(ups_1, dim=1)
+        elif len(ups_1) == 1:
+            x1 = ups_1[0]
+
+        if len(ups_2) > 1:
+            x2 = torch.cat(ups_2, dim=1)
+        elif len(ups_2) == 1:
+            x2 = ups_2[0]
+
+        if len(self.deblocks_1) > self.num_levels:
+            x1 = self.deblocks_1[-1](x1)
+
+        if len(self.deblocks_2) > self.num_levels:
+            x2 = self.deblocks_2[-1](x1)
+
+        
+        if self.with_transformer:
+            x = self.transformer(x1, x2)
+        else:
+            x = torch.cat([x1, x2], dim=1)
+
+        data_dict['spatial_features_2d'] = x
+        return data_dict
+
 class CrossViewTransformerBEVDecoder(BaseBEVDecoder):
     def __init__(self, model_cfg, input_channels):
         super().__init__(model_cfg=model_cfg, input_channels=input_channels)
