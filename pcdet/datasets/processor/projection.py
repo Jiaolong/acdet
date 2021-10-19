@@ -210,6 +210,7 @@ class ProjectionBase(object):
             # img_show = 255 * proj_masks.float().numpy()
             img_show = img_show.astype(np.uint8)
             img_show = np.repeat(img_show[..., None], 3, axis=2)
+            cv2.imwrite("/tmp/points_img.png", img_show)
             #cv2.imshow('debug', )
             #cv2.waitKey()
             exit(0)
@@ -515,12 +516,12 @@ class CylindricalProjector(ProjectionBase):
     def __init__(self, cfg):
         super().__init__(cfg)
         
-        self.z_max = cfg.get('z_max', 1.0)
-        self.z_min = cfg.get('z_min', -2.5)
+        self.z_max = cfg.get('Z_MAX', 1.0)
+        self.z_min = cfg.get('Z_MIN', -2.5)
         self.z_range = self.z_max - self.z_min
         
-        self.fov_left = self.to_radian(cfg.get('fov_left', 45.0)) # field of view left in rad
-        self.fov_right = self.to_radian(cfg.get('fov_right', -45.0)) # field of view right in rad
+        self.fov_left = self.to_radian(cfg.get('FOV_LEFT', 45.0)) # field of view left in rad
+        self.fov_right = self.to_radian(cfg.get('FOV_RIGHT', -45.0)) # field of view right in rad
         self.fov_horizontal = abs(self.fov_left) + abs(self.fov_right)  # get field of view horizontal in rad
 
     def xyz_to_plane(self, points):
