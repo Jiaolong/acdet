@@ -372,8 +372,8 @@ class CrossViewTransformerBEVDecoder(BaseBEVDecoder):
                 nn.ReLU(),
             ))
         self.num_bev_features = c_in
-
-        self.transformer = CrossViewTransformer(in_dim=input_channels)
+        
+        self.transformer = CrossViewTransformer(query_dim=input_channels, key_dim=input_channels, proj_dim=input_channels // 8)
 
     def forward(self, data_dict):
         """
