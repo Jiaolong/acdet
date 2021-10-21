@@ -757,7 +757,7 @@ class CrossViewTransformerMaskBEVDecoder(BaseBEVDecoder):
         )
         self.num_bev_features = c_in
 
-        self.transformer = CrossViewTransformer(in_dim=input_channels)
+        self.transformer = CrossViewTransformer(query_dim=input_channels, key_dim=input_channels, proj_dim=input_channels // 8)
         self.mask_generate = GeneragePillarMask(voxel_size=self.voxel_size, point_cloud_range=self.point_clout_range)
 
     def forward(self, data_dict):
@@ -799,7 +799,7 @@ class CrossViewTransformerMaskBEVDecoder(BaseBEVDecoder):
         self.forward_ret_dict["mask"] = mask
         self.forward_ret_dict["gt_mask"] = gt_mask.to(mask.device).unsqueeze(1)
 
-        data_dict['spatial_features_2d'] = torch.mul(x, self.forward_ret_dict["gt_mask"].float()) + x
+        data_dict['spatial_features_2d'] = torch.mul(x, mask) + x
         return data_dict
 
     def get_loss(self):
