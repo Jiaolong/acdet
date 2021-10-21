@@ -799,7 +799,7 @@ class CrossViewTransformerMaskBEVDecoder(BaseBEVDecoder):
         self.forward_ret_dict["mask"] = mask
         self.forward_ret_dict["gt_mask"] = gt_mask.to(mask.device).unsqueeze(1)
 
-        data_dict['spatial_features_2d'] = torch.mul(x, mask) + x
+        data_dict['spatial_features_2d'] = torch.mul(x, self.forward_ret_dict["gt_mask"].float()) + x
         return data_dict
 
     def get_loss(self):

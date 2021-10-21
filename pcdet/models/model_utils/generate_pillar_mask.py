@@ -51,12 +51,17 @@ class GeneragePillarMask(object):
             bev_corners -= vis_point_range[:2]
             bev_corners *= np.array(
                 (w, h))[::-1] / (vis_point_range[3:5] - vis_point_range[:2])
-            segmask = np.zeros((w, h, 3))
-            segmask = cv2.drawContours(segmask, bev_corners.astype(np.int), -1, 255, -1)
-            segmask = cv2.resize(segmask, (int(segmask.shape[1]/scale), int(segmask.shape[0]/scale)), interpolation=cv2.INTER_NEAREST)
-            segmask_maps[i] = segmask[:, :, 0] / 255.
+            bev_corners = bev_corners / scale
+            segmask = np.zeros((w//scale, h//scale, 3))
+            for idx in np.unique(current_bbox[:,-1]):
+                segmask = cv2.drawContours(segmask, bev_corners[current_bbox[:, -1] == idx].astype(np.int),
+                                           -1, int(idx), -1)
+            # segmask = cv2.resize(segmask, (int(segmask.shape[1]/scale), int(segmask.shape[0]/scale)), interpolation=cv2.INTER_NEAREST)
+            segmask_maps[i] = segmask[:, :, 0]
+            # segmask = cv2.drawContours(segmask, bev_corners.astype(np.int), -1, 255, -1)
+            # segmask = cv2.resize(segmask, (int(segmask.shape[1]/scale), int(segmask.shape[0]/scale)), interpolation=cv2.INTER_NEAREST)
+            # segmask_maps[i] = segmask[:, :, 0] / 255.
         # cv2.imwrite("/home/zhangxiao/test_2.png", segmask_maps[0]*255)
-        
         # bev_map = kitti_vis(points[points[:, 0] == 0][:, 1:].contiguous().data.cpu().numpy(), vis_voxel_size=vis_voxel_size,
         #                     vis_point_range=vis_point_range, boxes=boxes[0].detach().cpu().numpy())
         return segmask_maps
@@ -84,16 +89,39 @@ class GeneragePillarMask(object):
         segmask_maps = self.generate_mask(points, vis_voxel_size=vis_voxel_size,
                                 vis_point_range=vis_point_range,
                                 boxes=gt_bboxes_3d, scale=scale)
-        gaussian = self.gaussian_2d((2 * 6 + 1, 2 * 6 + 1), sigma=6/6)
+        radius = 3
+        diameter = 2 * radius + 1
+        gaussian = self.gaussian_2d((diameter, diameter), sigma=diameter/6)
         heatmap = generate_gaussion_heatmap_array(np.array(masks.size()),
                                                         coors.cpu().numpy(),
-                                                        segmask_maps, gaussian, scale)
+                                                        segmask_maps, gaussian, scale, radius=radius)
         heatmap = torch.from_numpy(heatmap)
         return heatmap
 
+    def gaussian_radius(self, det_size, min_overlap=0.7):
+        height, width = det_size
+
+        a1  = 1
+        b1  = (height + width)
+        c1  = width * height * (1 - min_overlap) / (1 + min_overlap)
+        sq1 = np.sqrt(b1 ** 2 - 4 * a1 * c1)
+        r1  = (b1 + sq1) / 2
+
+        a2  = 4
+        b2  = 2 * (height + width)
+        c2  = (1 - min_overlap) * width * height
+        sq2 = np.sqrt(b2 ** 2 - 4 * a2 * c2)
+        r2  = (b2 + sq2) / 2
+
+        a3  = 4 * min_overlap
+        b3  = -2 * min_overlap * (height + width)
+        c3  = (min_overlap - 1) * width * height
+        sq3 = np.sqrt(b3 ** 2 - 4 * a3 * c3)
+        r3  = (b3 + sq3) / 2
+        return min(r1, r2, r3)
 
 # @numba.jit(nopython=True)
-def generate_gaussion_heatmap_array(heatmap_size, coors, segmask_maps, gaussian, scale=2):
+def generate_gaussion_heatmap_array(heatmap_size, coors, segmask_maps, gaussian, scale=2, radius=6):
     """generate gaussiin heatmap
 
     Args:
@@ -107,14 +135,14 @@ def generate_gaussion_heatmap_array(heatmap_size, coors, segmask_maps, gaussian,
         [np.ndarray]: gaussion heatmap
     """
     heatmap = np.zeros((heatmap_size[0], heatmap_size[2], heatmap_size[3]))
-    radius = 6
-    coors_int = coors.astype(int)
+    coors_int = coors.astype(np.int64)
     for i in range(coors_int.shape[0]):
         batch_idx = coors_int[i][0]
         center = coors_int[i][-2:][::-1] // scale
         if segmask_maps[batch_idx, center[1], center[0]] == 0:
             continue
         draw_heatmap_gaussian_array(heatmap[batch_idx], center, radius, gaussian)
+        # heatmap[batch_idx, center[1], center[0]] = 1.
     # cv2.imwrite("/home/zhangxiao/test_2.png", (heatmap[1] * 255).astype(np.uint8))
     return heatmap
 
