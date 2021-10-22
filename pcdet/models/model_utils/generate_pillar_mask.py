@@ -9,10 +9,31 @@ import cv2
 from .vis_utils import center_to_corner_box2d, kitti_vis
 from pcdet.utils.box_utils import boxes3d_lidar_to_aligned_bev_boxes, boxes_to_corners_3d
 
+def gaussian_2d(shape, sigma=1):
+    """Generate gaussian map.
+
+    Args:
+        shape (list[int]): Shape of the map.
+        sigma (float): Sigma to generate gaussian map.
+            Defaults to 1.
+
+    Returns:
+        np.ndarray: Generated gaussian map.
+    """
+    m, n = [(ss - 1.) / 2. for ss in shape]
+    y, x = np.ogrid[-m:m + 1, -n:n + 1]
+
+    h = np.exp(-(x * x + y * y) / (2 * sigma * sigma))
+    h[h < np.finfo(h.dtype).eps * h.max()] = 0
+    return h
+
+label_radius = {1:3, 2:6, 3:3}
+radius_gaussion = {3:gaussian_2d((7,7), 7/6), 6:gaussian_2d((13,13), 13/6)}
+
 class GeneragePillarMask(object):
     """
     """
-    def __init__(self,                  
+    def __init__(self,
                  voxel_size=(0.16, 0.16, 4),
                  point_cloud_range=(0, -39.68, -3, 69.12, 39.68, 1),):
         super().__init__()
@@ -66,35 +87,17 @@ class GeneragePillarMask(object):
         #                     vis_point_range=vis_point_range, boxes=boxes[0].detach().cpu().numpy())
         return segmask_maps
 
-    def gaussian_2d(self, shape, sigma=1):
-        """Generate gaussian map.
-
-        Args:
-            shape (list[int]): Shape of the map.
-            sigma (float): Sigma to generate gaussian map.
-                Defaults to 1.
-
-        Returns:
-            np.ndarray: Generated gaussian map.
-        """
-        m, n = [(ss - 1.) / 2. for ss in shape]
-        y, x = np.ogrid[-m:m + 1, -n:n + 1]
-
-        h = np.exp(-(x * x + y * y) / (2 * sigma * sigma))
-        h[h < np.finfo(h.dtype).eps * h.max()] = 0
-        return h
-
     def generate(self, masks, points, coors, vis_voxel_size, vis_point_range, gt_bboxes_3d):
         scale = self.feature_h // masks.size(2)
         segmask_maps = self.generate_mask(points, vis_voxel_size=vis_voxel_size,
                                 vis_point_range=vis_point_range,
                                 boxes=gt_bboxes_3d, scale=scale)
-        radius = 3
-        diameter = 2 * radius + 1
-        gaussian = self.gaussian_2d((diameter, diameter), sigma=diameter/6)
+        # radius = 3
+        # diameter = 2 * radius + 1
+        # gaussian = self.gaussian_2d((diameter, diameter), sigma=diameter/6)
         heatmap = generate_gaussion_heatmap_array(np.array(masks.size()),
                                                         coors.cpu().numpy(),
-                                                        segmask_maps, gaussian, scale, radius=radius)
+                                                        segmask_maps, scale)
         heatmap = torch.from_numpy(heatmap)
         return heatmap
 
@@ -121,7 +124,7 @@ class GeneragePillarMask(object):
         return min(r1, r2, r3)
 
 # @numba.jit(nopython=True)
-def generate_gaussion_heatmap_array(heatmap_size, coors, segmask_maps, gaussian, scale=2, radius=6):
+def generate_gaussion_heatmap_array(heatmap_size, coors, segmask_maps, scale=2):
     """generate gaussiin heatmap
 
     Args:
@@ -139,14 +142,17 @@ def generate_gaussion_heatmap_array(heatmap_size, coors, segmask_maps, gaussian,
     for i in range(coors_int.shape[0]):
         batch_idx = coors_int[i][0]
         center = coors_int[i][-2:][::-1] // scale
-        if segmask_maps[batch_idx, center[1], center[0]] == 0:
+        label_idx = segmask_maps[batch_idx, center[1], center[0]]
+        if  label_idx == 0:
             continue
+        radius = label_radius[label_idx]
+        gaussian = radius_gaussion[radius]
         draw_heatmap_gaussian_array(heatmap[batch_idx], center, radius, gaussian)
         # heatmap[batch_idx, center[1], center[0]] = 1.
-    # cv2.imwrite("/home/zhangxiao/test_2.png", (heatmap[1] * 255).astype(np.uint8))
+    # cv2.imwrite("/home/zhangxiao/img/test_2.png", (heatmap[1] * 255).astype(np.uint8))
     return heatmap
 
-# @numba.jit(nopython=True)
+@numba.jit(nopython=True)
 def draw_heatmap_gaussian_array(heatmap, center, radius, gaussian, k=1):
     """Get gaussian masked heatmap.
 
