@@ -97,12 +97,14 @@ def create_logger(log_file=None, rank=0, log_level=logging.INFO):
     return logger
 
 
-def set_random_seed(seed):
+def set_random_seed(seed, deterministic=False):
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
+    torch.cuda.manual_seed_all(seed)
+    if deterministic:
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
 
 
 def get_pad_params(desired_size, cur_size):

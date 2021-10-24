@@ -31,6 +31,7 @@ def parse_config():
     parser.add_argument('--set', dest='set_cfgs', default=None, nargs=argparse.REMAINDER,
                         help='set extra config keys if needed')
 
+    parser.add_argument('--fix_random_seed', action='store_true', default=False, help='')
     parser.add_argument('--max_waiting_mins', type=int, default=30, help='max waiting minutes')
     parser.add_argument('--start_epoch', type=int, default=0, help='')
     parser.add_argument('--eval_tag', type=str, default='default', help='eval tag for this experiment')
@@ -44,7 +45,9 @@ def parse_config():
     cfg.TAG = Path(args.cfg_file).stem
     cfg.EXP_GROUP_PATH = '/'.join(args.cfg_file.split('/')[1:-1])  # remove 'cfgs' and 'xxxx.yaml'
 
-    np.random.seed(1024)
+    # np.random.seed(1024)
+    if args.fix_random_seed:
+        common_utils.set_random_seed(666)
 
     if args.set_cfgs is not None:
         cfg_from_list(args.set_cfgs, cfg)
