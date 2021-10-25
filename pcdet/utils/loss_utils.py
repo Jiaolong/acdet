@@ -144,6 +144,7 @@ class WeightedL1Loss(nn.Module):
                 Code-wise weights.
         """
         super(WeightedL1Loss, self).__init__()
+        self.code_weights=None
         if code_weights is not None:
             self.code_weights = np.array(code_weights, dtype=np.float32)
             self.code_weights = torch.from_numpy(self.code_weights).cuda()
@@ -173,7 +174,7 @@ class WeightedL1Loss(nn.Module):
         # anchor-wise weighting
         if weights is not None:
             assert weights.shape[0] == loss.shape[0] and weights.shape[1] == loss.shape[1]
-            loss = loss * weights.unsqueeze(-1)
+            loss = loss * weights
 
         return loss
 

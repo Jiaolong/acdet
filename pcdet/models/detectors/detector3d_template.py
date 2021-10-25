@@ -296,6 +296,47 @@ class Detector3DTemplate(nn.Module):
 
         return pred_dicts, recall_dict
 
+    def post_processingV2(self, batch_dict):
+        """
+        Args:
+            batch_dict:
+                batch_size:
+                batch_cls_preds: (B, num_boxes, num_classes | 1) or (N1+N2+..., num_classes | 1)
+                                or [(B, num_boxes, num_class1), (B, num_boxes, num_class2) ...]
+                multihead_label_mapping: [(num_class1), (num_class2), ...]
+                batch_box_preds: (B, num_boxes, 7+C) or (N1+N2+..., 7+C)
+                cls_preds_normalized: indicate whether batch_cls_preds is normalized
+                batch_index: optional (N1+N2+...)
+                has_class_labels: True/False
+                roi_labels: (B, num_rois)  1 .. num_classes
+                batch_pred_labels: (B, num_boxes, 1)
+        Returns:
+
+        """
+        post_process_cfg = self.model_cfg.POST_PROCESSING
+        batch_size = batch_dict['batch_size']
+        pred_lists= batch_dict['batch_predict_list']
+        recall_dict = {}
+        pred_dicts = []
+
+        for index in range(batch_size):
+            final_boxes,final_scores,final_labels=pred_lists[index]
+            final_labels=final_labels+1
+            recall_dict = self.generate_recall_record(
+                box_preds=final_boxes,
+                recall_dict=recall_dict, batch_index=index, data_dict=batch_dict,
+                thresh_list=post_process_cfg.RECALL_THRESH_LIST
+            )
+
+            record_dict = {
+                'pred_boxes': final_boxes,
+                'pred_scores': final_scores,
+                'pred_labels': final_labels
+            }
+            pred_dicts.append(record_dict)
+
+        return pred_dicts, recall_dict
+
     @staticmethod
     def generate_recall_record(box_preds, recall_dict, batch_index, data_dict=None, thresh_list=None):
         if 'gt_boxes' not in data_dict:

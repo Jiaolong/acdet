@@ -4,7 +4,7 @@ from torch import nn
 import torch.nn.functional as F
 from pcdet.datasets.processor.projection import BEVProjector
 from pcdet.models.backbones_2d.meta_kernel import EdgeConvKernel, MetaKernel
-# from pcdet.ops.voxel import Voxelization,DynamicScatter
+from pcdet.ops.voxel import Voxelization,DynamicScatter,DynamicVoxelization
 from pcdet.models.backbones_2d.map_to_bev import PointPillarScatter
 from easydict import EasyDict
 
@@ -27,6 +27,7 @@ class RangeToBEV(nn.Module):
         self.voxel_size = torch.tensor(project_cfg['VOXEL_SIZE'], dtype=torch.float).cuda().reshape(-1, 3)
         self.point_cloud_range = torch.tensor(project_cfg['POINT_CLOUD_RANGE'], dtype=torch.float).cuda().reshape(-1, 6)
 
+
         if self.use_voxelization:
             self.voxel_layer = Voxelization(voxel_size=project_cfg['VOXEL_SIZE'],
                                             point_cloud_range=project_cfg['POINT_CLOUD_RANGE'],
@@ -39,6 +40,7 @@ class RangeToBEV(nn.Module):
             pillar_scatter_cfg = EasyDict({'NUM_BEV_FEATURES': 32})
             self.range_pillar_scatter = PointPillarScatter(pillar_scatter_cfg, self.grid_size)
             self.range_scatter = DynamicScatter(project_cfg['POINT_CLOUD_RANGE'], project_cfg['VOXEL_SIZE'], True)
+            self.range_dynamic_voxelization = DynamicVoxelization(self.point_cloud_range, self.voxel_size, True)
         else:
             self.bev_projector_range = BEVProjector(project_cfg)
 
@@ -49,6 +51,7 @@ class RangeToBEV(nn.Module):
             if self.use_voxelization:
                 self.complete_pillar_scatter = PointPillarScatter(pillar_scatter_cfg, self.grid_size)
                 self.complete_scatter = DynamicScatter(project_cfg['POINT_CLOUD_RANGE'], project_cfg['VOXEL_SIZE'],False)
+                self.complete_dynamic_voxelization = DynamicVoxelization(self.point_cloud_range, self.voxel_size, False)
             else:
                 self.bev_projector_complete = BEVProjector(project_cfg)
 
@@ -154,7 +157,7 @@ class RangeToBEV(nn.Module):
         x = x.permute(0, 2, 3, 1).contiguous()  # B, H, W, C
         features_batch = x.view(batch_size, H * W, C)  # B, H * W, C
         points_batch = points_img[:, :3].permute(0, 2, 3, 1).contiguous()  # B, H, W, 3
-        points_batch = points_batch.view(batch_size, H * W, -1)  # B, H * W, 3
+        points_batch = points_batch.view(batch_size, H * W, 3)  # B, H * W, 3
         proj_masks = proj_masks.view(batch_size,H*W)
 
         range_features_batch = []
@@ -170,16 +173,18 @@ class RangeToBEV(nn.Module):
             range_features_batch.append(features)
         range_points_batch=torch.cat(range_points_batch,dim=0)
         range_features_batch=torch.cat(range_features_batch,dim=0)
-        range_coord_batch=self.voxelize(range_points_batch)
-        voxel_feature_range,voxel_coord_range=self.range_scatter(range_features_batch,range_coord_batch)
+        # range_coord_batch=self.voxelize(range_points_batch)
+        # voxel_feature_range,voxel_coord_range=self.range_scatter(range_features_batch,range_coord_batch)
+        voxel_feature_range,voxel_coord_range=self.range_dynamic_voxelization(range_points_batch,range_features_batch)
         range_scatter_input={'pillar_features':voxel_feature_range,'voxel_coords':voxel_coord_range}
         bev_features_batch=self.range_pillar_scatter(range_scatter_input)['spatial_features']
-
+        # print("type is ",type(batch_complete_points[:,1:5]))
         if self.fuse_complete_points:
             batch_complete_features = self.complete_net(batch_complete_points[:, 1:5])
-            batch_complete_coord=self.voxelize(batch_complete_points)
-            voxel_feature_complete, voxel_coord_complete = self.complete_scatter(batch_complete_features,
-                                                                                 batch_complete_coord)
+            # batch_complete_coord=self.voxelize(batch_complete_points)
+            # voxel_feature_complete, voxel_coord_complete = self.complete_scatter(batch_complete_features,
+            #                                                                      batch_complete_coord)
+            voxel_feature_complete, voxel_coord_complete = self.complete_dynamic_voxelization(batch_complete_points[:, 0:4],batch_complete_features)
             complete_scatter_input = {'pillar_features': voxel_feature_complete, 'voxel_coords': voxel_coord_complete}
             complete_feature_batch=self.complete_pillar_scatter(complete_scatter_input)['spatial_features']
             bev_features_batch=torch.cat([bev_features_batch,complete_feature_batch],dim=1)
@@ -263,9 +268,32 @@ class RangeToBEV(nn.Module):
         batch_size=points[-1,0].item()+1
         for i in range(int(batch_size)):
             cur_mask=points[:,0]==i
-            cur_points=points[cur_mask]
+            cur_points=points[cur_mask][:,1:].contiguous()
             cur_coors = self.voxel_layer(cur_points)
             coor_pad = F.pad(cur_coors, (1, 0), mode='constant', value=i)
             coors.append(coor_pad)
         coors_batch = torch.cat(coors, dim=0)
         return coors_batch
+
+    @torch.no_grad()
+    def voxelize_v2(self, points):
+        """Apply dynamic voxelization to points.
+
+        Args:
+            points ([torch.Tensor]): Points of each sample.
+
+        Returns:
+            tuple[torch.Tensor]: Concatenated points and coordinates.
+        """
+        coors = []
+        # dynamic voxelization only provide a coors mapping
+        batch_size = points[-1, 0].item() + 1
+        for i in range(int(batch_size)):
+            cur_mask = points[:, 0] == i
+            cur_points = points[cur_mask]
+            cur_coors = ((cur_points[:, [2, 1, 0]] - self.point_cloud_range[:,[2,1,0]]) / self.voxel_size[:,[2, 1, 0]]).to(torch.int64)
+            coor_pad = F.pad(cur_coors, (1, 0), mode='constant', value=i)
+            coors.append(coor_pad)
+        coors_batch = torch.cat(coors, dim=0)
+        return coors_batch
+

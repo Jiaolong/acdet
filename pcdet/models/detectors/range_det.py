@@ -30,7 +30,10 @@ class RangeDet(Detector3DTemplate):
             }
             return ret_dict, tb_dict, disp_dict
         else:
-            pred_dicts, recall_dicts = self.post_processing(batch_dict)
+            if self.model_cfg.DENSE_HEAD.NAME=="CenterHead":
+                pred_dicts, recall_dicts = self.post_processingV2(batch_dict)
+            else:
+                pred_dicts, recall_dicts = self.post_processing(batch_dict)
             return pred_dicts, recall_dicts
     
     def build_networks(self):
@@ -118,21 +121,31 @@ class RangeDet(Detector3DTemplate):
     def build_dense_head(self, model_info_dict):
         if self.model_cfg.get('DENSE_HEAD', None) is None:
             return None, model_info_dict
-        dense_head_module = dense_heads.__all__[self.model_cfg.DENSE_HEAD.NAME](
-            model_cfg=self.model_cfg.DENSE_HEAD,
-            input_channels=self.model_cfg.DENSE_HEAD.INPUT_CHANNELS,
-            num_class=self.num_class if not self.model_cfg.DENSE_HEAD.CLASS_AGNOSTIC else 1,
-            class_names=self.class_names,
-            grid_size=model_info_dict['grid_size'],
-            point_cloud_range=model_info_dict['point_cloud_range'],
-            predict_boxes_when_training=self.model_cfg.get('ROI_HEAD', False)
-        )
+        if self.model_cfg.DENSE_HEAD.NAME=='CenterHead':
+            dense_head_module = dense_heads.__all__[self.model_cfg.DENSE_HEAD.NAME](
+                model_cfg=self.model_cfg.DENSE_HEAD,
+                input_channels=self.model_cfg.DENSE_HEAD.INPUT_CHANNELS,
+                tasks=self.model_cfg.DENSE_HEAD.TASKS,
+                train_cfg=self.model_cfg.DENSE_HEAD.TRAIN_CONFIG,
+                bbox_coder=self.model_cfg.DENSE_HEAD.BBOX_CODER,
+                common_heads=self.model_cfg.DENSE_HEAD.COMMON_HEADS,
+                separate_head=self.model_cfg.DENSE_HEAD.SEPARATE_HEAD,
+                share_conv_channel=self.model_cfg.DENSE_HEAD.SHARE_CONV_CHANNEL,)
+        else:
+            dense_head_module = dense_heads.__all__[self.model_cfg.DENSE_HEAD.NAME](
+                model_cfg=self.model_cfg.DENSE_HEAD,
+                input_channels=self.model_cfg.DENSE_HEAD.INPUT_CHANNELS,
+                num_class=self.num_class if not self.model_cfg.DENSE_HEAD.CLASS_AGNOSTIC else 1,
+                class_names=self.class_names,
+                grid_size=model_info_dict['grid_size'],
+                point_cloud_range=model_info_dict['point_cloud_range'],
+                predict_boxes_when_training=self.model_cfg.get('ROI_HEAD', False)
+            )
         model_info_dict['module_list'].append(dense_head_module)
         return dense_head_module, model_info_dict
 
     def get_training_loss(self):
         disp_dict = {}
-
         loss_rpn, tb_dict = self.dense_head.get_loss()
         tb_dict = {
             'loss_rpn': loss_rpn.item(),

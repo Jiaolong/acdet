@@ -3,9 +3,9 @@ import torch
 from torch import nn
 from torch.autograd import Function
 from torch.nn.modules.utils import _pair
-
+import torch.nn.functional as F
 from .voxel_layer import dynamic_voxelize, hard_voxelize
-
+from torch_scatter import scatter_max,scatter,scatter_mean
 
 class _Voxelization(Function):
 
@@ -120,3 +120,56 @@ class Voxelization(nn.Module):
         tmpstr += ', max_voxels=' + str(self.max_voxels)
         tmpstr += ')'
         return tmpstr
+
+
+
+class DynamicVoxelization(nn.Module):
+    def __init__(self,pc_range,voxel_size,average_points=True):
+        super(DynamicVoxelization, self).__init__()
+        self.pc_range = pc_range
+        self.voxel_size = voxel_size
+        if not isinstance(pc_range,torch.Tensor):
+            self.pc_range=torch.tensor(pc_range,dtype=torch.float32).cuda()
+        if not isinstance(voxel_size,torch.Tensor):
+            self.voxel_size=torch.tensor(voxel_size,dtype=torch.float32).cuda()
+        self.pc_range=self.pc_range.reshape(1,-1)
+        self.voxel_size=self.voxel_size.reshape(1,-1)
+        self.average_points=average_points
+        self.grid_size = (self.pc_range[:,3:6] - self.point_cloud_range[:,0:3]) / self.voxel_size
+        self.grid_size=self.grid_size[:,[2,1,0]]
+        print("self grid size is ",self.grid_size)
+
+    def forward(self,points ,features):
+        # keep = (points[:, 0] >= self.pc_range[0,0]) & (points[:, 0] <= self.pc_range[0,3]) & \
+        #     (points[:, 1] >= self.pc_range[0,1]) & (points[:, 1] <= self.pc_range[0,4]) & \
+        #         (points[:, 2] >= self.pc_range[0,2]) & (points[:, 2] <= self.pc_range[0,5])
+        # points = points[keep, :]
+        # features=features[keep,:]
+        batch_size=points[-1,0].item()+1
+        voxels_batch=[]
+        coors_batch=[]
+        for i in range(int(batch_size)):
+            cur_mask = points[:, 0] == i
+            cur_points = points[cur_mask][:, 1:].contiguous()
+            cur_features=features[cur_mask].contiguous()
+            # keep = (cur_points[:, 0] >= self.pc_range[0,0]) & (cur_points[:, 0] < self.pc_range[0,3]) & \
+            #     (cur_points[:, 1] >= self.pc_range[0,1]) & (cur_points[:, 1] < self.pc_range[0,4]) & \
+            #         (cur_points[:, 2] >= self.pc_range[0,2]) & (cur_points[:, 2] < self.pc_range[0,5])
+            # cur_points = cur_points[keep, :]
+            coords = ((cur_points[:, [2, 1, 0]] - self.pc_range[:, [2, 1, 0]]) / self.voxel_size[:, [2, 1, 0]]).to(torch.int64)
+            keep = ((coords < self.grid_size) & (coords >= 0)).all()
+            cur_features=cur_features[keep,:]
+            coords=coords[keep,:]
+            unique_coords, inverse_indices = coords.unique(return_inverse=True, dim=0)
+            if self.average_points:
+                voxels = scatter_mean(cur_features, inverse_indices, dim=0)
+            else:
+                voxels=scatter_max(cur_features, inverse_indices, dim=0)[0]
+            voxels_batch.append(voxels)
+            unique_coords=F.pad(unique_coords, (1, 0), mode='constant', value=i)
+            coors_batch.append(unique_coords)
+        voxels_batch=torch.cat(voxels_batch,dim=0)
+        coors_batch=torch.cat(coors_batch,dim=0)
+        return voxels_batch,coors_batch
+
+
