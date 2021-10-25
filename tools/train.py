@@ -2,6 +2,7 @@ import argparse
 import datetime
 import glob
 import os
+import random
 from pathlib import Path
 from test import repeat_eval_ckpt
 
@@ -74,9 +75,6 @@ def main():
 
     args.epochs = cfg.OPTIMIZATION.NUM_EPOCHS if args.epochs is None else args.epochs
 
-    if args.fix_random_seed:
-        common_utils.set_random_seed(666)
-
     output_dir = cfg.ROOT_DIR / 'output' / cfg.EXP_GROUP_PATH / cfg.TAG / args.extra_tag
     ckpt_dir = output_dir / 'ckpt'
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -89,6 +87,11 @@ def main():
     logger.info('**********************Start logging**********************')
     gpu_list = os.environ['CUDA_VISIBLE_DEVICES'] if 'CUDA_VISIBLE_DEVICES' in os.environ.keys() else 'ALL'
     logger.info('CUDA_VISIBLE_DEVICES=%s' % gpu_list)
+
+    if args.fix_random_seed:
+        seed = random.randint(0, 1024)
+        common_utils.set_random_seed(seed)
+        logger.info('random seed: {}'.format(seed))
 
     if dist_train:
         logger.info('total_batch_size: %d' % (total_gpus * args.batch_size))
