@@ -4,8 +4,8 @@ from torch import nn
 from torch.autograd import Function
 from torch.nn.modules.utils import _pair
 import torch.nn.functional as F
-from .voxel_layer import dynamic_voxelize, hard_voxelize
-from torch_scatter import scatter_max,scatter,scatter_mean
+#from .voxel_layer import dynamic_voxelize, hard_voxelize
+#from torch_scatter import scatter_max,scatter,scatter_mean
 
 class _Voxelization(Function):
 

@@ -2,8 +2,8 @@ import torch
 from torch import nn
 from torch.autograd import Function
 
-from .voxel_layer import (dynamic_point_to_voxel_backward,
-                          dynamic_point_to_voxel_forward)
+#from .voxel_layer import (dynamic_point_to_voxel_backward,
+#                          dynamic_point_to_voxel_forward)
 
 
 class _dynamic_scatter(Function):

@@ -90,9 +90,12 @@ def main():
     logger.info('CUDA_VISIBLE_DEVICES=%s' % gpu_list)
 
     if args.fix_random_seed:
-        # seed = random.randint(0, 1024)
-        common_utils.set_random_seed(args.seed)
-        logger.info('random seed: {}'.format(args.seed))
+        seed = args.seed
+    else:
+        seed = random.randint(0, 1024)
+    
+    common_utils.set_random_seed(args.seed)
+    logger.info('random seed: {}'.format(args.seed))
 
     if dist_train:
         logger.info('total_batch_size: %d' % (total_gpus * args.batch_size))
