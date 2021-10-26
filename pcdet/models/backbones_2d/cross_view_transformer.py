@@ -16,39 +16,33 @@ def feature_selection(input, dim, index):
     return torch.gather(input, dim, index)
 
 class CrossViewAttention(nn.Module):
-    def __init__(self, in_dim, feat_dim=None):
+    def __init__(self, in_dim, proj_dim=64):
         super(CrossViewAttention, self).__init__()
 
-        out_dim = in_dim // 2 if feat_dim is None else feat_dim
+        self.conv11 = nn.Conv2d(
+            in_channels=in_dim, out_channels=proj_dim, kernel_size=1)
+        self.conv21 = nn.Conv2d(
+            in_channels=in_dim, out_channels=proj_dim, kernel_size=1)
 
-        self.query_conv = nn.Conv2d(
-            in_channels=in_dim, out_channels=out_dim, kernel_size=1)
-        self.key_conv = nn.Conv2d(
-            in_channels=in_dim, out_channels=out_dim, kernel_size=1)
-
-        self.value_conv = nn.Conv2d(
-            in_channels=in_dim, out_channels=in_dim, kernel_size=1)
-        
-        self.att_conv = nn.Conv2d(
-            in_channels=out_dim * 2, out_channels=1, kernel_size=1)
+        self.mask_conv = nn.Conv2d(
+            in_channels=proj_dim * 2, out_channels=2, kernel_size=1)
 
         self.sigmoid = nn.Sigmoid()
 
-    def forward(self, query_x, ref_x):
+    def forward(self, x1, x2):
         """
         Args:
-            query_x (torch.Tensor): the qury feature map
-            ref_x (torch.Tensor): the key and value feature map
+            x1 (torch.Tensor): the range view feature map
+            x2 (torch.Tensor): the bev feature map
         """
-        batch_size, C, H, W = query_x.size()
-        proj_query = self.query_conv(query_x)
-        proj_key = self.key_conv(ref_x)
-        proj_value = self.value_conv(ref_x)
+        batch_size, C, H, W = x1.size()
+        x11 = self.conv11(x1)
+        x21 = self.conv21(x2)
         
-        x = torch.cat([proj_query, proj_key], dim=1)
-        x = self.att_conv(x)
-        attention = self.sigmoid(x)
-        output = query_x + attention * proj_value
+        x = torch.cat([x11, x21], dim=1)
+        mask = self.mask_conv(x)
+        mask = self.sigmoid(mask)
+        output = x1 * mask[:, 0:1] + x2 * mask[:, 1:2]
 
         return output
 
