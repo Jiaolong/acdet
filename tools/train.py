@@ -32,7 +32,7 @@ def parse_config():
     parser.add_argument('--launcher', choices=['none', 'pytorch', 'slurm'], default='none')
     parser.add_argument('--tcp_port', type=int, default=18888, help='tcp port for distrbuted training')
     parser.add_argument('--sync_bn', action='store_true', default=False, help='whether to use sync bn')
-    parser.add_argument('--fix_random_seed', action='store_true', default=True, help='')
+    parser.add_argument('--fix_random_seed', action='store_true', default=False, help='')
     parser.add_argument('--seed',type=int,default=0, required=False,help='')
     parser.add_argument('--ckpt_save_interval', type=int, default=1, help='number of training epochs')
     parser.add_argument('--local_rank', type=int, default=0, help='local rank for distributed training')
@@ -88,14 +88,14 @@ def main():
     logger.info('**********************Start logging**********************')
     gpu_list = os.environ['CUDA_VISIBLE_DEVICES'] if 'CUDA_VISIBLE_DEVICES' in os.environ.keys() else 'ALL'
     logger.info('CUDA_VISIBLE_DEVICES=%s' % gpu_list)
-
+    
     if args.fix_random_seed:
         seed = args.seed
     else:
         seed = random.randint(0, 1024)
     
-    common_utils.set_random_seed(args.seed)
-    logger.info('random seed: {}'.format(args.seed))
+    common_utils.set_random_seed(seed)
+    logger.info('random seed: {}'.format(seed))
 
     if dist_train:
         logger.info('total_batch_size: %d' % (total_gpus * args.batch_size))
