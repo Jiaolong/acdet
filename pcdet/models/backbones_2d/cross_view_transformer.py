@@ -27,7 +27,7 @@ class CrossViewAttention(nn.Module):
         self.mask_conv = nn.Conv2d(
             in_channels=proj_dim * 2, out_channels=2, kernel_size=1)
 
-        self.sigmoid = nn.Sigmoid()
+        self.attention = nn.Softmax(dim=1)
 
     def forward(self, x1, x2):
         """
@@ -41,8 +41,8 @@ class CrossViewAttention(nn.Module):
         
         x = torch.cat([x11, x21], dim=1)
         mask = self.mask_conv(x)
-        mask = self.sigmoid(mask)
-        output = x1 * mask[:, 0:1] + x2 * mask[:, 1:2]
+        mask = self.attention(mask)
+        output = torch.cat([x1 * mask[:, 0:1], x2 * mask[:, 1:2]], dim=1)
 
         return output
 

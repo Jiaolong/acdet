@@ -543,8 +543,8 @@ class CrossViewAttentionBEVDecoder(BaseBEVDecoder):
                 if stride >= 1:
                     self.deblocks.append(nn.Sequential(
                         nn.ConvTranspose2d(
-                            #input_channels + num_filters[idx], num_upsample_filters[idx],
-                            num_filters[idx], num_upsample_filters[idx],
+                            input_channels + num_filters[idx], num_upsample_filters[idx],
+                            #num_filters[idx], num_upsample_filters[idx],
                             upsample_strides[idx],
                             stride=upsample_strides[idx], bias=False
                         ),
@@ -555,8 +555,8 @@ class CrossViewAttentionBEVDecoder(BaseBEVDecoder):
                     stride = np.round(1 / stride).astype(np.int)
                     self.deblocks.append(nn.Sequential(
                         nn.Conv2d(
-                            # input_channels + num_filters[idx], num_upsample_filters[idx],
-                            num_filters[idx], num_upsample_filters[idx],
+                            input_channels + num_filters[idx], num_upsample_filters[idx],
+                            #num_filters[idx], num_upsample_filters[idx],
                             stride,
                             stride=stride, bias=False
                         ),
@@ -588,7 +588,6 @@ class CrossViewAttentionBEVDecoder(BaseBEVDecoder):
             x1 = data_dict['{}_{}x'.format(self.feature_names[0], stride)] # range view
             x2 = data_dict['{}_{}x'.format(self.feature_names[1], stride)] # bev view
             x = self.attention_blocks[i](x1, x2)
-
             if len(self.deblocks) > 0:
                 ups.append(self.deblocks[i](x))
             else:
