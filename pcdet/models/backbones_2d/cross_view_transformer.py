@@ -108,17 +108,17 @@ class CrossViewTransformer(nn.Module):
         """
         batch_size, C, H, W = ref_x.size()
         proj_query = self.query_conv(query_x).view(
-            batch_size, -1, H * W)  # B x C x (N)
+            batch_size, -1, H * W)  # B x C x N
         proj_key = self.key_conv(ref_x).view(
-            batch_size, -1, H * W).permute(0, 2, 1)  # B x C x (W*H)
+            batch_size, -1, H * W).permute(0, 2, 1).contiguous()  # B x N x C
 
         proj_value = self.value_conv(ref_x).view(
             batch_size, -1, H * W)  # B x C x N
 
-        energy = torch.bmm(proj_key, proj_query)  # transpose check
+        energy = torch.bmm(proj_key, proj_query)  # transpose check  B*N*N
 
         attention = self.softmax(energy)  # B x N x N
-        z = torch.bmm(proj_value, attention.permute(0, 2, 1))
+        z = torch.bmm(proj_value, attention.permute(0, 2, 1).contiguous())
         z = z.view(batch_size, C, H, W)
         output = query_x + z
 

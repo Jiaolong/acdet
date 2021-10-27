@@ -1,6 +1,6 @@
 CLASS_NAMES: ['Car', 'Pedestrian', 'Cyclist']
 
-DATA_CONFIG: 
+DATA_CONFIG:
     _BASE_CONFIG_: cfgs/dataset_configs/kitti_dataset.yaml
     POINT_CLOUD_RANGE: [0, -39.68, -3, 69.12, 39.68, 1]
     DATA_PROCESSOR:
@@ -13,6 +13,13 @@ DATA_CONFIG:
             'test': False
           }
 
+        - NAME: transform_points_to_voxels
+          VOXEL_SIZE: [ 0.16, 0.16, 4 ]
+          MAX_POINTS_PER_VOXEL: 32
+          MAX_NUMBER_OF_VOXELS: {
+            'train': 16000,
+            'test': 40000
+          }
         - NAME: project_points
           TYPE: 'cylindrical'
           FOV_LEFT: 45.0
@@ -51,19 +58,21 @@ DATA_CONFIG:
               WORLD_SCALE_RANGE: [0.95, 1.05]
 
 MODEL:
-    NAME: RangeDet
-    
+    NAME: RangeDetFusion
+
     BACKBONE_FV:
         NAME: SALSANEXT
         INPUT_CHANNELS: 5
         OUTPUT_CHANNELS: 32
         KERNEL_CFG:
-            TYPE: "edge_conv"
+            TYPE: "meta"
+            META_CHANNELS: 4
             INPUT_CHANNELS: 32
             OUTPUT_CHANNELS: 32
             FEATURE_MAP_SIZE: [48, 512]
+            USE_ATTENTION: True
             USE_MASK: True
-            REDUCED: False
+            REDUCED: True
 
     RANGE_TO_BEV:
         NAME: RangeToBEV
@@ -72,14 +81,43 @@ MODEL:
             POINT_CLOUD_RANGE: [0, -39.68, -3, 69.12, 39.68, 1]
             VOXEL_SIZE: [0.16, 0.16, 4]
 
-    BACKBONE_BEV:
-        NAME: BaseBEVBackbone
+    VFE:
+        NAME: PillarVFE
+        WITH_DISTANCE: False
+        USE_ABSLOTE_XYZ: True
+        USE_NORM: True
+        NUM_FILTERS: [ 32 ]
+
+    MAP_TO_BEV:
+        NAME: PointPillarScatter
+        NUM_BEV_FEATURES: 32
+        OUT_FEATURE_NAME: 'points_img_bev'
+
+    BEV_ENCODER_1:
+        NAME: BaseBEVEncoder
         INPUT_CHANNELS: 32
-        LAYER_NUMS: [3, 5, 5]
-        LAYER_STRIDES: [2, 2, 2]
-        NUM_FILTERS: [64, 128, 256]
-        UPSAMPLE_STRIDES: [1, 2, 4]
-        NUM_UPSAMPLE_FILTERS: [128, 128, 128]
+        FEATURE_NAME: 'spatial_features'
+        LAYER_NUMS: [ 3, 5, 5]
+        LAYER_STRIDES: [ 2, 2, 2 ]
+        NUM_FILTERS: [ 64, 64, 64 ]
+        # NUM_FILTERS: [64, 128, 256]
+
+    BEV_ENCODER_2:
+        NAME: BaseBEVEncoder
+        INPUT_CHANNELS: 32
+        FEATURE_NAME: 'points_img_bev'
+        LAYER_NUMS: [ 3, 5, 5]
+        LAYER_STRIDES: [ 2, 2, 2 ]
+        NUM_FILTERS: [ 64, 64, 64 ]
+        # NUM_FILTERS: [64, 128, 256]
+
+    BEV_DECODER:
+      NAME: CrossViewTransformerBEVDecoder
+      INPUT_CHANNELS: 64
+      NUM_FILTERS: [ 64, 64, 64 ]
+      UPSAMPLE_STRIDES: [ 1, 2, 4 ]
+      NUM_UPSAMPLE_FILTERS: [ 128, 128, 128 ]
+      FEATURE_NAMES: ['spatial_features', 'points_img_bev']
 
     DENSE_HEAD:
         NAME: YOLOXHeadSingle
@@ -89,7 +127,7 @@ MODEL:
         DIR_OFFSET: 0.78539
         DIR_LIMIT_OFFSET: 0.0
         NUM_DIR_BINS: 2
-        
+
         INPUT_CHANNELS: 384
 
         ANCHOR_GENERATOR_CONFIG: [
@@ -106,7 +144,7 @@ MODEL:
             NAME: SimOTA
             MATCH_HEIGHT: False
             BOX_CODER: ResidualCoder
-            CENTER_RADIUS: 0.3
+            CENTER_RADIUS: -1.0 # adaptive radius
             IOU_WEIGHT: 3.0
             CLS_WEIGHT: 1.0
             TOPK: 10
