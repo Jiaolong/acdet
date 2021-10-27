@@ -39,9 +39,9 @@ class PointProjection(object):
         # from tools.visual_utils.visualize_utils import draw_scenes
         # import mayavi.mlab as mlab
         # has_empty=False
+        # draw_lidar(points[:,:3],'before')
+
         points = torch.from_numpy(points)
-        #
-        # # draw_lidar(points.numpy()[:,:3],'before')
         results = self.projector.do_projection(points,data_dict)
         #
         if self.remove_empty_bboxes and ('gt_boxes' in data_dict):
@@ -91,6 +91,7 @@ class ProjectionBase(object):
         
         self.num_cols = cfg.get('NUM_COLS', 512)
         self.num_rows = cfg.get('NUM_ROWS', 48)
+        self.frontal_axis = cfg.get('FRONTAL_AXIS', 'X') # KITTI 
 
     def xyz_to_plane(self, points_xyz):
         """Project 3d points to 2d plane
@@ -199,8 +200,8 @@ class ProjectionBase(object):
         proj_row = proj_row[order].long()
 
         # Project the points.
-        points_img = -1.0 * points.new_ones(self.num_rows, self.num_cols, dim + 1)
-        points_img[proj_row, proj_col, :dim] = points[order]
+        points_img = -1.0 * points.new_ones(self.num_rows, self.num_cols, 5)
+        points_img[proj_row, proj_col, :4] = points[order, :4]
         points_img[proj_row, proj_col, -1] = points_depth[order]
         output["points_img"] = points_img
 
@@ -214,7 +215,7 @@ class ProjectionBase(object):
         points_img *= proj_masks[..., None]
         
         # for debug
-        if False:
+        if True:
             import cv2
             img = points_img.numpy()
             img_show = 255 * (1 - img[..., 4])
@@ -448,9 +449,9 @@ class BEVProjector(ProjectionBase):
             img_show = points_img.numpy()
             img_show = (255 * (1 - img_show)).astype(np.uint8)
             print(img_show.shape)
-            #cv2.imwrite('/tmp/debug_bev.png', img_show)
-            cv2.imshow('debug_bev', img_show)
-            cv2.waitKey()
+            cv2.imwrite('/tmp/debug_bev.png', img_show)
+            #cv2.imshow('debug_bev', img_show)
+            #cv2.waitKey()
             exit(0)
 
         output['points_img'] = points_img.permute(2, 0, 1).contiguous() # C, H, W
@@ -519,10 +520,21 @@ class SphericalProjector(ProjectionBase):
 
         points, is_numpy = check_numpy_to_torch(points)
        
-        xs = points[:, 0]
-        ys = points[:, 1]
-        yaw = -torch.arctan(ys / (xs + 1e-8))
+        # for frontal axis = y
+        if self.frontal_axis == 'Y':
+            xs = points[:, 1]
+            ys = -points[:, 0]
+        else:
+            xs = points[:, 0]
+            ys = points[:, 1]
         
+        yaw = torch.arctan(ys / (xs + 1e-8))
+
+        yaw[(xs < 0) & (ys < 0)] -= np.pi
+        yaw[(xs < 0) & (ys >=0)] += np.pi
+
+        yaw = -yaw
+
         proj_x = (yaw + abs(self.fov_left)) / self.fov_horizontal  # in [0.0, 1.0]
 
         proj_x *= self.num_cols
@@ -622,10 +634,21 @@ class CylindricalProjector(ProjectionBase):
 
         points, is_numpy = check_numpy_to_torch(points)
 
-        xs = points[:, 0]
-        ys = points[:, 1]
-        yaw = -torch.arctan(ys / (xs + 1e-8))
+        # for frontal axis = y
+        if self.frontal_axis == 'Y':
+            xs = points[:, 1]
+            ys = -points[:, 0]
+        else:
+            xs = points[:, 0]
+            ys = points[:, 1]
         
+        yaw = torch.arctan(ys / (xs + 1e-8))
+
+        yaw[(xs < 0) & (ys < 0)] -= np.pi
+        yaw[(xs < 0) & (ys >=0)] += np.pi
+
+        yaw = -yaw
+
         proj_x = (yaw + abs(self.fov_left)) / self.fov_horizontal  # in [0.0, 1.0]
 
         proj_x *= self.num_cols

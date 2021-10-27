@@ -92,7 +92,7 @@ class BaseBEVDecoder(nn.Module):
         elif len(ups) == 1:
             x = ups[0]
 
-        if len(self.deblocks) > len(self.blocks):
+        if len(self.deblocks) > self.num_levels:
             x = self.deblocks[-1](x)
 
         data_dict['spatial_features_2d'] = x
