@@ -215,7 +215,7 @@ class ProjectionBase(object):
         points_img *= proj_masks[..., None]
         
         # for debug
-        if True:
+        if False:
             import cv2
             img = points_img.numpy()
             img_show = 255 * (1 - img[..., 4])
