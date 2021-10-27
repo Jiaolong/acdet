@@ -174,7 +174,8 @@ class WeightedL1Loss(nn.Module):
         # anchor-wise weighting
         if weights is not None:
             assert weights.shape[0] == loss.shape[0] and weights.shape[1] == loss.shape[1]
-            loss = loss * weights
+            loss = loss * weights.unsqueeze(-1)
+            #loss = loss * weights
 
         return loss
 

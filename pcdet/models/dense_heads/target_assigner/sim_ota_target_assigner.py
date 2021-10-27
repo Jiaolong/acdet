@@ -152,7 +152,7 @@ class SimOTATargetAssigner(object):
         matched_pred_ious, matched_gt_inds = self.dynamic_k_matching(
             cost_matrix, ious, num_gt, valid_mask)
 
-        matched_gts = box_preds.new_full((num_anchor, self.box_coder.code_size), 0)
+        matched_gts = box_preds.new_full((num_anchor, gt_boxes.shape[1]), 0)
         matched_gts[valid_mask] = gt_boxes[matched_gt_inds]
         cls_labels = matched_gt_inds.new_full((num_anchor, ), -1)
         cls_labels[valid_mask] = gt_classes[matched_gt_inds].long()
