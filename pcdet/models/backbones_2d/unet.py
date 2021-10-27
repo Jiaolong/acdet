@@ -89,7 +89,7 @@ class SALSANEXT(nn.Module):
         self.kernel_type=None
         if self.use_kernel:
             self.kernel_type=kernel_cfg.pop("TYPE")
-        if 'KERNEL_LAYER_INDEX' in kernel_cfg:
+        if self.use_kernel and 'KERNEL_LAYER_INDEX' in kernel_cfg:
             self.kernel_layer_index=kernel_cfg.pop('KERNEL_LAYER_INDEX')
         else:
             self.kernel_layer_index=1
