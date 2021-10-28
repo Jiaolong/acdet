@@ -269,6 +269,6 @@ class YOLOXHeadSingle(AnchorHeadTemplate):
         if not self.training or self.predict_boxes_when_training:
             data_dict['batch_cls_preds'] = batch_cls_preds
             data_dict['batch_box_preds'] = batch_box_preds
-            data_dict['cls_preds_normalized'] = False
+            data_dict['cls_preds_normalized'] = True
 
         return data_dict
