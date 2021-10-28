@@ -33,6 +33,8 @@ def class_agnostic_weighted_nms(box_scores, box_preds, nms_config, score_thresh=
         box_preds = box_preds[scores_mask]
 
     selected = []
+    selected_indices=[]
+    keep_boxes=[]
     if box_scores.shape[0] > 0:
         box_scores_nms, indices = torch.topk(box_scores, k=min(nms_config.NMS_PRE_MAXSIZE, box_scores.shape[0]))
         boxes_for_nms = box_preds[indices]
@@ -42,9 +44,9 @@ def class_agnostic_weighted_nms(box_scores, box_preds, nms_config, score_thresh=
         selected = keep_idx[:nms_config.NMS_POST_MAXSIZE]
         selected_indices = indices[selected]
 
-    if score_thresh is not None:
-        original_idxs = scores_mask.nonzero().view(-1)
-        selected_indices = original_idxs[selected_indices]
+        if score_thresh is not None:
+            original_idxs = scores_mask.nonzero().view(-1)
+            selected_indices = original_idxs[selected_indices]
     return keep_boxes, selected, src_box_scores[selected_indices], selected_indices
     
 

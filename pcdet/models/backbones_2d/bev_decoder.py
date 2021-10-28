@@ -793,13 +793,12 @@ class CrossViewTransformerMaskBEVDecoder(BaseBEVDecoder):
             x = self.deblocks[-1](x)
 
         mask = self.binary_cls(x)
-        gt_mask = self.mask_generate.generate(mask, data_dict["points"], data_dict['voxel_coords'], 
-                                    self.voxel_size, self.point_clout_range, data_dict["gt_boxes"])
         self.forward_ret_dict["mask"] = mask
-        self.forward_ret_dict["gt_mask"] = gt_mask.to(mask.device).unsqueeze(1)
-        # for idx, frame_id in enumerate(data_dict["frame_id"]):
-        #     np.save("/home/zhangxiao/tmp/npy/mask/" + frame_id + ".npy", mask[idx].cpu().numpy())
-        #     np.save("/home/zhangxiao/tmp/npy/gt_mask/" + frame_id + ".npy", gt_mask[idx])
+        if self.training:
+            gt_mask = self.mask_generate.generate(mask, data_dict["points"], data_dict['voxel_coords'],
+                                    self.voxel_size, self.point_clout_range, data_dict["gt_boxes"])
+            self.forward_ret_dict["gt_mask"] = gt_mask.to(mask.device).unsqueeze(1)
+
         data_dict['spatial_features_2d'] = torch.mul(x, mask) + x
         return data_dict
 
