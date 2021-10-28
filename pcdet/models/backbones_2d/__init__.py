@@ -8,6 +8,7 @@ from .bev_decoder import BaseBEVDecoder, ConcatBEVDecoder, LateConcatBEVDecoder
 from .bev_decoder import CrossViewTransformerBEVDecoder, CrossViewAttentionBEVDecoder, CrossViewTransformerMaskBEVDecoder
 from .bev_decoder import CrossViewBlockTransformerBEVDecoder
 from .bev_decoder import ConcatPillarCtxDecoder
+from .bev_decoder import CrossViewMaskFuseBEVDecoder
 from .ran_bev_backbone import ResidualAttentionBEVBackbone
 from .softmask_ran_bev_backbone import SoftmaskResidualAttentionBEVBackbone
 from .scale_attention_bev_backbone import ScaleAttentionBEVBackbone
@@ -33,5 +34,6 @@ __all__ = {
     'ScaleAttentionBEVBackbone': ScaleAttentionBEVBackbone,
     'CrossViewTransformerMaskBEVDecoder': CrossViewTransformerMaskBEVDecoder,
     'CrossViewBlockTransformerBEVDecoder': CrossViewBlockTransformerBEVDecoder,
+    'CrossViewMaskFuseBEVDecoder': CrossViewMaskFuseBEVDecoder,
     'SALSANEXTV2': SALSANEXTV2,
 }
