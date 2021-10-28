@@ -322,7 +322,8 @@ def create_waymo_infos(dataset_cfg, class_names, data_path, save_path,
 
     dataset.set_split(train_split)
     waymo_infos_train = dataset.get_infos(
-        raw_data_path=data_path / raw_data_tag,
+        #raw_data_path=data_path / raw_data_tag,
+        raw_data_path=data_path / "training",
         save_path=save_path / processed_data_tag, num_workers=workers, has_label=True,
         sampled_interval=1
     )
@@ -332,7 +333,8 @@ def create_waymo_infos(dataset_cfg, class_names, data_path, save_path,
 
     dataset.set_split(val_split)
     waymo_infos_val = dataset.get_infos(
-        raw_data_path=data_path / raw_data_tag,
+        #raw_data_path=data_path / raw_data_tag,
+        raw_data_path=data_path / "validation",
         save_path=save_path / processed_data_tag, num_workers=workers, has_label=True,
         sampled_interval=1
     )
