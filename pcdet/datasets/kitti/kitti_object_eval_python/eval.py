@@ -675,6 +675,7 @@ def get_official_eval_result(gt_annos, dt_annos, current_classes, PR_detail_dict
         gt_annos, dt_annos, current_classes, min_overlaps, compute_aos, PR_detail_dict=PR_detail_dict)
 
     ret_dict = {}
+    difficulty = ['easy', 'moderate', 'hard']
     for j, curcls in enumerate(current_classes):
         # mAP threshold array: [num_minoverlap, metric, class]
         # mAP result: [num_class, num_diff, num_minoverlap]
@@ -701,6 +702,8 @@ def get_official_eval_result(gt_annos, dt_annos, current_classes, PR_detail_dict
                    # ret_dict['%s_aos/moderate' % class_to_name[curcls]] = mAPaos[j, 1, 0]
                    # ret_dict['%s_aos/hard' % class_to_name[curcls]] = mAPaos[j, 2, 0]
 
+
+
             result += print_str(
                 (f"{class_to_name[curcls]} "
                  "AP_R40@{:.2f}, {:.2f}, {:.2f}:".format(*min_overlaps[i, :, j])))
@@ -722,6 +725,7 @@ def get_official_eval_result(gt_annos, dt_annos, current_classes, PR_detail_dict
                    ret_dict['%s_aos/moderate_R40' % class_to_name[curcls]] = mAPaos_R40[j, 1, 0]
                    ret_dict['%s_aos/hard_R40' % class_to_name[curcls]] = mAPaos_R40[j, 2, 0]
 
+
             if i == 0:
                 # ret_dict['%s_3d/easy' % class_to_name[curcls]] = mAP3d[j, 0, 0]
                 # ret_dict['%s_3d/moderate' % class_to_name[curcls]] = mAP3d[j, 1, 0]
@@ -742,6 +746,37 @@ def get_official_eval_result(gt_annos, dt_annos, current_classes, PR_detail_dict
                 ret_dict['%s_image/easy_R40' % class_to_name[curcls]] = mAPbbox_R40[j, 0, 0]
                 ret_dict['%s_image/moderate_R40' % class_to_name[curcls]] = mAPbbox_R40[j, 1, 0]
                 ret_dict['%s_image/hard_R40' % class_to_name[curcls]] = mAPbbox_R40[j, 2, 0]
+
+    if len(current_classes) > 1:
+        # prepare results for print
+        result += ('\nOverall AP@{}, {}, {}:\n'.format(*difficulty))
+        if mAPbbox is not None:
+            mAPbbox_mean = mAPbbox.mean(axis=0)
+            result += 'bbox AP:{:.4f}, {:.4f}, {:.4f}\n'.format(*mAPbbox_mean[:, 0])
+        if mAPbev is not None:
+            mAPbev_mean = mAPbev.mean(axis=0)
+            result += 'bev  AP:{:.4f}, {:.4f}, {:.4f}\n'.format(*mAPbev_mean[:, 0])
+        if mAP3d is not None:
+            mAP3d_mean = mAP3d.mean(axis=0)
+            result += '3d   AP:{:.4f}, {:.4f}, {:.4f}\n'.format(*mAP3d_mean[:, 0])
+        if compute_aos:
+            mAPaos_mean = mAPaos.mean(axis=0)
+            result += 'aos  AP:{:.2f}, {:.2f}, {:.2f}\n'.format(*mAPaos_mean[:, 0])
+
+        # prepare results for print
+        result += ('\nOverall AP_R40@{}, {}, {}:\n'.format(*difficulty))
+        if mAPbbox_R40 is not None:
+            mAPbbox_R40_mean = mAPbbox_R40.mean(axis=0)
+            result += 'bbox AP_R40:{:.4f}, {:.4f}, {:.4f}\n'.format(*mAPbbox_R40_mean[:, 0])
+        if mAPbev_R40 is not None:
+            mAPbev_R40_mean = mAPbev_R40.mean(axis=0)
+            result += 'bev  AP_R40:{:.4f}, {:.4f}, {:.4f}\n'.format(*mAPbev_R40_mean[:, 0])
+        if mAP3d_R40 is not None:
+            mAP3d_R40_mean = mAP3d_R40.mean(axis=0)
+            result += '3d   AP_R40:{:.4f}, {:.4f}, {:.4f}\n'.format(*mAP3d_R40_mean[:, 0])
+        if compute_aos:
+            mAPaos_R40_mean = mAPaos_R40.mean(axis=0)
+            result += 'aos  AP_R40:{:.2f}, {:.2f}, {:.2f}\n'.format(*mAPaos_R40_mean[:, 0])
 
     return result, ret_dict
 
