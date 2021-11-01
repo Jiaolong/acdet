@@ -225,7 +225,9 @@ class YOLOXHeadSingle(AnchorHeadTemplate):
 
         """
         targets_dict = self.target_assigner.assign_targets(
-                self.anchors, gt_boxes, batch_cls_preds=cls_preds, batch_box_preds=box_preds
+                self.anchors, gt_boxes, 
+                batch_cls_preds=cls_preds.detach(), 
+                batch_box_preds=box_preds.detach()
                 )
         return targets_dict
 
