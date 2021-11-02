@@ -279,8 +279,10 @@ class Detector3DTemplate(nn.Module):
 
                     final_scores = selected_scores
                     final_labels = label_preds[selected_indices]
-                    final_boxes = keep_boxes[selected]
-
+                    if len(keep_boxes) == 0:
+                        final_boxes = box_preds[selected]
+                    else:
+                        final_boxes = keep_boxes[selected]
             recall_dict = self.generate_recall_record(
                 box_preds=final_boxes if 'rois' not in batch_dict else src_box_preds,
                 recall_dict=recall_dict, batch_index=index, data_dict=batch_dict,
