@@ -58,25 +58,16 @@ MODEL:
         FEATURE_NAME: 'spatial_features' 
         LAYER_NUMS: [5, 5]
         LAYER_STRIDES: [1, 2]
-        NUM_FILTERS: [64, 64]
-        # NUM_FILTERS: [64, 128, 256]
-    
-    BEV_ENCODER_2:
-        NAME: BaseBEVEncoder
-        INPUT_CHANNELS: 3
-        FEATURE_NAME: 'points_img_bev' 
-        LAYER_NUMS: [5, 5]
-        LAYER_STRIDES: [1, 2]
-        NUM_FILTERS: [64, 64]
+        NUM_FILTERS: [128, 128]
         # NUM_FILTERS: [64, 128, 256]
     
     BEV_DECODER:
-      NAME: CrossViewTransformerBEVDecoder
+      NAME: BaseBEVDecoder
       INPUT_CHANNELS: 64
-      NUM_FILTERS: [ 64, 64]
-      UPSAMPLE_STRIDES: [ 1, 2]
-      NUM_UPSAMPLE_FILTERS: [ 128, 128]
-      FEATURE_NAMES: ['spatial_features', 'points_img_bev']
+      NUM_FILTERS: [128, 128]
+      UPSAMPLE_STRIDES: [1, 2]
+      NUM_UPSAMPLE_FILTERS: [256, 256]
+      FEATURE_NAME: 'spatial_features'
 
     DENSE_HEAD:
         NAME: YOLOXHeadSingle
@@ -87,7 +78,7 @@ MODEL:
         DIR_LIMIT_OFFSET: 0.0
         NUM_DIR_BINS: 2
         
-        INPUT_CHANNELS: 384
+        INPUT_CHANNELS: 512
 
         ANCHOR_GENERATOR_CONFIG: [
             {

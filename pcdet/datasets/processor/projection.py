@@ -528,12 +528,7 @@ class SphericalProjector(ProjectionBase):
             xs = points[:, 0]
             ys = points[:, 1]
         
-        yaw = torch.arctan(ys / (xs + 1e-8))
-
-        yaw[(xs < 0) & (ys < 0)] -= np.pi
-        yaw[(xs < 0) & (ys >=0)] += np.pi
-
-        yaw = -yaw
+        yaw = -torch.atan2(ys, (xs + 1e-8))
 
         proj_x = (yaw + abs(self.fov_left)) / self.fov_horizontal  # in [0.0, 1.0]
 
@@ -642,12 +637,7 @@ class CylindricalProjector(ProjectionBase):
             xs = points[:, 0]
             ys = points[:, 1]
         
-        yaw = torch.arctan(ys / (xs + 1e-8))
-
-        yaw[(xs < 0) & (ys < 0)] -= np.pi
-        yaw[(xs < 0) & (ys >=0)] += np.pi
-
-        yaw = -yaw
+        yaw = -torch.atan2(ys, (xs + 1e-8))
 
         proj_x = (yaw + abs(self.fov_left)) / self.fov_horizontal  # in [0.0, 1.0]
 
