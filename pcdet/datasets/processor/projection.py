@@ -401,8 +401,8 @@ class BEVProjector(ProjectionBase):
         proj_row = proj_row[mask_all > 0]
         points = points[mask_all > 0]
 
-        # Get depth of all points for ordering.
-        points_depth = points[:, 3]
+        # Get depth (z value) of all points for ordering.
+        points_depth = points[:, 2]
 
         # Get the indices in order of increasing depth.
         indices = np.arange(points_depth.shape[0])
