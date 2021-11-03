@@ -166,6 +166,13 @@ class ConcatBEVDecoder(BaseBEVDecoder):
 
             x1 = data_dict['{}_{}x'.format(self.feature_names[0], stride)]
             x2 = data_dict['{}_{}x'.format(self.feature_names[1], stride)]
+            
+            mask_name = '{}_{}m'.format(self.feature_names[1], stride)
+            if mask_name in data_dict:
+                mask = data_dict[mask_name]
+                x1 = x1 * mask
+                x2 = x2 * mask
+
             x = torch.cat([x1, x2], dim=1)
 
             if len(self.deblocks) > 0:
