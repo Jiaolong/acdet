@@ -49,7 +49,7 @@ MODEL:
             NAME: SimOTA
             MATCH_HEIGHT: False
             BOX_CODER: ResidualCoder
-            CENTER_RADIUS: 0.3
+            CENTER_RADIUS: -1.0 # 0.3
             IOU_WEIGHT: 3.0
             CLS_WEIGHT: 1.0
             TOPK: 10
