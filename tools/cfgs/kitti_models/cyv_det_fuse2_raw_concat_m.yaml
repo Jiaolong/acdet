@@ -89,7 +89,7 @@ MODEL:
         # NUM_FILTERS: [64, 128, 256]
     
     BEV_ENCODER_2:
-        NAME: BaseBEVEncoder
+        NAME: MaskBEVEncoder
         INPUT_CHANNELS: 3
         FEATURE_NAME: 'points_img_bev' 
         LAYER_NUMS: [ 3, 5, 5]
