@@ -189,8 +189,10 @@ class RangeDetFusionMask(Detector3DTemplate):
 
         loss_rpn, tb_dict = self.dense_head.get_loss()
         loss_mask, tb_dict_mask = self.bev_decoder.get_loss()
-        tb_dict.update(tb_dict_mask)
-        loss_rpn += loss_mask 
+        if loss_mask is not None:
+            tb_dict.update(tb_dict_mask)
+            loss_rpn += loss_mask 
+
         tb_dict = {
             'loss_rpn': loss_rpn.item(),
             **tb_dict
