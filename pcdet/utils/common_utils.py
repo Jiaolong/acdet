@@ -97,7 +97,7 @@ def create_logger(log_file=None, rank=0, log_level=logging.INFO):
     return logger
 
 
-def set_random_seed(seed, deterministic=False):
+def set_random_seed(seed, deterministic=True):
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
