@@ -935,6 +935,7 @@ class MetaKernelV4(nn.Module):
         super().__init__()
         self.meta_channels = kernel_cfg.META_CHANNELS
         self.in_channels = kernel_cfg.INPUT_CHANNELS
+        self.dim_emb = kernel_cfg.get('DIM_EMB', self.in_channels)
         self.out_channels = kernel_cfg.OUTPUT_CHANNELS
         self.feature_map_size = kernel_cfg.FEATURE_MAP_SIZE
         self.dilation = kernel_cfg.get('DILATION', 1)
@@ -942,12 +943,12 @@ class MetaKernelV4(nn.Module):
         self.use_attention = kernel_cfg.USE_ATTENTION
 
 
-        self.weight_mlp1 = nn.Linear(self.meta_channels, self.in_channels, bias=False)
-        self.weight_bn1 = nn.BatchNorm1d(self.in_channels)
+        self.weight_mlp1 = nn.Linear(self.meta_channels, self.dim_emb, bias=False)
+        self.weight_bn1 = nn.BatchNorm1d(self.dim_emb)
         self.relu1 = nn.ReLU(inplace=True)
 
         self.aggregation_mlp = nn.Linear(
-            self.in_channels*10, self.out_channels, bias=False)
+            self.in_channels + 9 * self.dim_emb, self.out_channels, bias=False)
         self.aggregation_bn = nn.BatchNorm1d(self.out_channels)
         self.relu2 = nn.ReLU(inplace=True)
 
@@ -980,11 +981,11 @@ class MetaKernelV4(nn.Module):
         x_p0 = x_pn[:, :, 4:5, :]  # B*HW*1*4
         pn_p0 = x_pn - x_p0  # B*HW*9*4
         pn_p0 = pn_p0.reshape(-1, pn_p0.shape[-1]).contiguous()
-
+        
         geo_reduce = self.weight_mlp1(pn_p0[m_unfold.view(-1) > 0])  # B*HW*9*C'
         geo_reduce = self.weight_bn1(geo_reduce)
         geo_reduce = self.relu1(geo_reduce)
-        geo = m_unfold.new_zeros(batch_size, H * W, 9, self.in_channels)
+        geo = m_unfold.new_zeros(batch_size, H * W, 9, self.dim_emb)
         geo[m_unfold[..., 0] > 0] = geo_reduce
 
         geo = geo.reshape(batch_size, H * W, -1)  # B*HW*9C'
