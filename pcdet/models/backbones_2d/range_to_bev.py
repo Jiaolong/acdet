@@ -7,7 +7,7 @@ from pcdet.models.backbones_2d.meta_kernel import EdgeConvKernel, MetaKernel
 from pcdet.ops.voxel import Voxelization,DynamicScatter,DynamicVoxelization
 from pcdet.models.backbones_2d.map_to_bev import PointPillarScatter
 from easydict import EasyDict
-
+from ...ops.pointnet2.pointnet2_batch import pointnet2_utils
 class RangeToBEV(nn.Module):
     """Convert range/cylinder view projected features to BEV features.
 
@@ -44,16 +44,16 @@ class RangeToBEV(nn.Module):
         else:
             self.bev_projector_range = BEVProjector(project_cfg)
 
-        if self.fuse_complete_points:
-            complete_channel = self.model_cfg.get('COMPLETE_CHANNEL', 32)
-            self.complete_net = nn.Sequential(nn.Linear(4, complete_channel, bias=False),
-                                              nn.BatchNorm1d(complete_channel),nn.ReLU(inplace=True))
-            if self.use_voxelization:
-                self.complete_pillar_scatter = PointPillarScatter(pillar_scatter_cfg, self.grid_size)
-                self.complete_scatter = DynamicScatter(project_cfg['POINT_CLOUD_RANGE'], project_cfg['VOXEL_SIZE'],False)
-                self.complete_dynamic_voxelization = DynamicVoxelization(self.point_cloud_range, self.voxel_size, False)
-            else:
-                self.bev_projector_complete = BEVProjector(project_cfg)
+        # if self.fuse_complete_points:
+        #     complete_channel = self.model_cfg.get('COMPLETE_CHANNEL', 32)
+        #     self.complete_net = nn.Sequential(nn.Linear(4, complete_channel, bias=False),
+        #                                       nn.BatchNorm1d(complete_channel),nn.ReLU(inplace=True))
+        #     if self.use_voxelization:
+        #         self.complete_pillar_scatter = PointPillarScatter(pillar_scatter_cfg, self.grid_size)
+        #         self.complete_scatter = DynamicScatter(project_cfg['POINT_CLOUD_RANGE'], project_cfg['VOXEL_SIZE'],False)
+        #         self.complete_dynamic_voxelization = DynamicVoxelization(self.point_cloud_range, self.voxel_size, False)
+        #     else:
+        #         self.bev_projector_complete = BEVProjector(project_cfg)
 
         self.with_pooling = self.model_cfg.get('WITH_POOLING', False)
         if self.with_pooling:
@@ -90,7 +90,6 @@ class RangeToBEV(nn.Module):
         x = data_dict['fv_features']
         points_img = data_dict['points_img']
         proj_masks = data_dict['proj_masks']
-        batch_complete_points = data_dict['points']
         batch_size, C, H, W = x.shape
 
         x = x.permute(0, 2, 3, 1).contiguous()  # B, H, W, C
@@ -99,6 +98,14 @@ class RangeToBEV(nn.Module):
         points_batch = points_batch.view(batch_size, H * W, -1)  # B, H * W, 3
         proj_masks = proj_masks.view(batch_size,H*W)
 
+        if self.fuse_complete_points:
+            points_img_far = data_dict['points_img_far']
+            proj_masks_far = data_dict['proj_masks_far']
+            points_batch_far = points_img_far[:, :3].permute(0, 2, 3, 1).contiguous()  # B, H, W, 3
+            points_batch_far = points_batch_far.view(batch_size, H * W, -1)  # B, H * W, 3
+            proj_masks_far = proj_masks_far.view(batch_size, H * W)
+
+
         bev_features_batch = []
         for k in range(batch_size):
             points = points_batch[k]  # H * W, 4
@@ -106,22 +113,41 @@ class RangeToBEV(nn.Module):
             mask = proj_masks[k]  # H * W
             points = points[mask > 0, :]
             features = features[mask > 0, :]
+
+            if self.fuse_complete_points:
+                points_far=points_batch_far[k]
+                mask_far=proj_masks_far[k]
+                points_far=points_far[mask_far>0,:]
+
+                # from tools.visual_utils.cloud_viewer import draw_lidar
+                # draw_lidar(points.cpu().numpy()[:, :3],  'points_near')
+                # draw_lidar(points_far.cpu().numpy()[:, :3], 'points_far')
+                dist, idx = pointnet2_utils.three_nn(points_far.unsqueeze(0), points.unsqueeze(0))
+                dist_recip = 1.0 / (dist + 1e-8)
+                norm = torch.sum(dist_recip, dim=2, keepdim=True)
+                weight = dist_recip / norm
+                features_inter=features.unsqueeze(0).permute(0,2,1).contiguous()
+                interpolated_feats = pointnet2_utils.three_interpolate(features_inter, idx, weight)
+                interpolated_feats=interpolated_feats.permute(0,2,1).contiguous().squeeze(0) #N*C
+                features=torch.cat([features,interpolated_feats],dim=0)
+                points=torch.cat([points,points_far],dim=0)
+                # draw_lidar(points.cpu().numpy()[:, :3], 'points_merge')
             # project points to BEV
             bev_features = self.bev_projector_range.get_projected_features(points, features, self.with_raw_features)  # C + 4, H2, W2
             bev_features_batch.append(bev_features)
         bev_features_batch = torch.stack(bev_features_batch,dim=0)  # B, C + 4, H2, W2
 
-        if self.fuse_complete_points:
-            batch_complete_features = self.complete_net(batch_complete_points[:, 1:5])
-            complete_feature_batch=[]
-            for i in range(batch_size):
-                mask_complete=batch_complete_points[:,0]==i
-                points_complete=batch_complete_points[mask_complete]
-                features_complete=batch_complete_features[mask_complete]
-                complete_features=self.bev_projector_complete.get_projected_features(points_complete,features_complete,batch_size)
-                complete_feature_batch.append(complete_features)
-            complete_feature_batch=torch.stack(complete_feature_batch,dim=0)
-            bev_features_batch=torch.cat([bev_features_batch,complete_feature_batch],dim=1)
+        # if self.fuse_complete_points:
+        #     batch_complete_features = self.complete_net(batch_complete_points[:, 1:5])
+        #     complete_feature_batch=[]
+        #     for i in range(batch_size):
+        #         mask_complete=batch_complete_points[:,0]==i
+        #         points_complete=batch_complete_points[mask_complete]
+        #         features_complete=batch_complete_features[mask_complete]
+        #         complete_features=self.bev_projector_complete.get_projected_features(points_complete,features_complete,batch_size)
+        #         complete_feature_batch.append(complete_features)
+        #     complete_feature_batch=torch.stack(complete_feature_batch,dim=0)
+        #     bev_features_batch=torch.cat([bev_features_batch,complete_feature_batch],dim=1)
 
         if self.with_pooling:
             bev_features_batch = self.pool(bev_features_batch)

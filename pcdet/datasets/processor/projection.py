@@ -246,7 +246,14 @@ class ProjectionBase(object):
             output["proj_masks_far"] = proj_masks_far
 
         points_img *= proj_masks[..., None]
-        
+        output['points_img'] = points_img.permute(2, 0, 1).contiguous()  # C, H, W
+
+        if self.append_far:
+            points_img_far*=proj_masks_far[...,None]
+            output['points_img_far'] = points_img_far.permute(2, 0, 1).contiguous()  # C, H, W
+        self.fov_right -= rot_offset
+        self.fov_left -= rot_offset
+
         # for debug
         if False:
             import cv2
@@ -259,13 +266,6 @@ class ProjectionBase(object):
             #cv2.imshow('debug', )
             #cv2.waitKey()
             exit(0)
-
-        output['points_img'] = points_img.permute(2, 0, 1).contiguous() # C, H, W
-        if self.append_far:
-            points_img_far*=proj_masks_far[...,None]
-            output['points_img_far'] = points_img_far.permute(2, 0, 1).contiguous()  # C, H, W
-        self.fov_right -= rot_offset
-        self.fov_left -= rot_offset
         return output
 
 class BEVProjector(ProjectionBase):

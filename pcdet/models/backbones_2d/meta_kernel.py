@@ -998,6 +998,13 @@ class MetaKernelV4(nn.Module):
         features[m_unfold_p0 > 0] = features_unfold
         features = features.permute(0, 2, 1).contiguous()
         features = self.fold(features)
+        # features_unfold = self.aggregation_mlp(features_unfold)  # B*HW*C''
+        # features_unfold = features_unfold.transpose(
+        #     1, 2).contiguous()  # B*C''*HW
+        # features_unfold = self.aggregation_bn(features_unfold)
+        # features_unfold = self.relu2(features_unfold)
+        # features = self.fold(features_unfold)
+
 
         return features
 
