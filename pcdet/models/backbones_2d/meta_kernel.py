@@ -14,18 +14,19 @@ class MetaKernel(nn.Module):
         self.out_channels = kernel_cfg.OUTPUT_CHANNELS
         self.feature_map_size = kernel_cfg.FEATURE_MAP_SIZE
         self.dilation=kernel_cfg.get('DILATION',1)
-        self.weight_mlp1 = nn.Linear(self.meta_channels, self.in_channels, bias=False)
-        self.weight_bn1 = nn.BatchNorm1d(self.in_channels)
-        self.relu1 = nn.ReLU(inplace=True)
+
 
         self.use_mask = kernel_cfg.USE_MASK
         self.use_attention = kernel_cfg.USE_ATTENTION
         self.reduced = kernel_cfg.REDUCED
-        self.residual=kernel_cfg.get('RESIDUAL',False)
-        self.remask=kernel_cfg.get('REMASK',False)
-
+        self.residual = kernel_cfg.get('RESIDUAL', False)
+        self.remask = kernel_cfg.get('REMASK', False)
         if self.reduced:
             assert self.use_mask, "reduced must required use_mask is True"
+
+        self.weight_mlp1 = nn.Linear(self.meta_channels, self.in_channels, bias=False)
+        self.weight_bn1 = nn.BatchNorm1d(self.in_channels)
+        self.relu1 = nn.ReLU(inplace=True)
         if self.use_attention:
             self.weight_mlp2 = nn.Linear(self.in_channels, 1)
         else:
@@ -160,6 +161,98 @@ class MetaKernel(nn.Module):
         features_unfold = self.aggregation_bn(features_unfold)
         features_unfold = self.relu2(features_unfold)
         features = self.fold(features_unfold)
+
+        return features
+
+
+class MetaKernelReduced(nn.Module):
+    def __init__(self, kernel_cfg):
+        super().__init__()
+        self.meta_channels = kernel_cfg.META_CHANNELS
+        self.in_channels = kernel_cfg.INPUT_CHANNELS
+        self.out_channels = kernel_cfg.OUTPUT_CHANNELS
+        self.feature_map_size = kernel_cfg.FEATURE_MAP_SIZE
+        self.dilation = kernel_cfg.get('DILATION', 1)
+        self.use_attention = kernel_cfg.USE_ATTENTION
+        self.residual = kernel_cfg.get('RESIDUAL', False)
+        self.remask = kernel_cfg.get('REMASK', False)
+
+        self.weight_mlp1 = nn.Linear(self.meta_channels, self.in_channels, bias=False)
+        self.weight_bn1 = nn.BatchNorm1d(self.in_channels)
+        self.relu1 = nn.ReLU(inplace=True)
+        if self.use_attention:
+            self.weight_mlp2 = nn.Linear(self.in_channels, 1)
+        else:
+            self.weight_mlp2 = nn.Linear(self.in_channels, self.in_channels)
+
+        self.aggregation_mlp = nn.Linear(
+            9 * self.in_channels, self.out_channels, bias=False)
+        self.aggregation_bn = nn.BatchNorm1d(self.out_channels)
+        self.relu2 = nn.ReLU(inplace=True)
+
+        self.unfold = nn.Unfold(kernel_size=3, dilation=self.dilation, padding=self.dilation, stride=1)
+        self.fold = nn.Fold(self.feature_map_size, kernel_size=1,
+                            dilation=1, padding=0)
+
+    def forward(self, x, mask):
+
+        batch_size, _, H, W = x.shape
+
+        x_unfold = self.unfold(x)  # B*C*H*W ---> B*(C*3*3)*(H*W)
+        x_unfold = x_unfold.transpose(1, 2).contiguous().reshape(
+            (batch_size, H * W, x.size(1), -1))  # B*HW*C*9
+        x_unfold = x_unfold.transpose(2, 3).contiguous()  # B*HW*9*C
+        features_unfold = x_unfold[..., 3:]  # B*HW*9*C'
+        x_pn = x_unfold[..., 0:3]  # B*HW*9*3
+        # B*1*H*W ---> B*(1*3*3)*(H*W)
+        m_unfold = self.unfold(mask.float())
+        m_unfold = m_unfold.transpose(1, 2).contiguous().reshape(
+            (batch_size, H * W, mask.size(1), -1))  # B*HW*1*9
+        m_unfold = m_unfold.transpose(2, 3).contiguous()  # B*HW*9*1
+        m_unfold_p0=m_unfold[:,:,4].squeeze(-1)
+        # m_unfold_p0_=mask.reshape(batch_size,-1)>0
+
+        # assert m_unfold_p0==m_unfold_p0_,"error"
+
+        x_pn_range = torch.norm(x_pn, p=2, dim=-1).unsqueeze(-1)
+        x_pn = torch.cat((x_pn, x_pn_range), dim=-1)
+        x_p0 = x_pn[:, :, 4:5, :]  # B*HW*1*4
+        pn_p0 = x_pn - x_p0  # B*HW*9*4
+        pn_p0 = pn_p0.reshape(-1, pn_p0.shape[-1]).contiguous()
+
+        weights_reduce = self.weight_mlp1(pn_p0[m_unfold.view(-1) > 0])  # B*HW*9*C'
+        weights_reduce = self.weight_bn1(weights_reduce)
+        weights_reduce = self.relu1(weights_reduce)
+        weights_reduce = self.weight_mlp2(weights_reduce)
+
+        weights = m_unfold.new_zeros(batch_size, H * W, 9, weights_reduce.shape[-1])
+        weights[m_unfold[..., 0] > 0] = weights_reduce
+
+        if self.use_attention:
+            weights = weights.squeeze(-1)
+            weights = f.softmax(weights, dim=-1)
+            weights = weights.unsqueeze(-1)
+
+        if self.remask:
+            weights = weights * m_unfold
+
+        if self.residual:
+            weights = 1 + weights
+
+        features_unfold = weights * features_unfold  # B*HW*9*C'
+
+        features_unfold = features_unfold.reshape(
+            (batch_size, -1, 9 * self.in_channels))  # B*HW*9C'
+        # print("feature shape is ",features_unfold.shape)
+
+        features_unfold = self.aggregation_mlp(features_unfold[m_unfold_p0>0])  # N*C''
+        # print("feature reduce shape is ",features_unfold.shape)
+        features_unfold = self.aggregation_bn(features_unfold)
+        features_unfold = self.relu2(features_unfold)
+        features=features_unfold.new_zeros(batch_size, H * W, self.out_channels)
+        features[m_unfold_p0>0]=features_unfold
+        features=features.permute(0,2,1).contiguous()
+        features = self.fold(features)
 
         return features
 
@@ -837,13 +930,176 @@ class MetaKernelDualAtt(nn.Module):
         return features
 
 
+class MetaKernelV4(nn.Module):
+    def __init__(self, kernel_cfg):
+        super().__init__()
+        self.meta_channels = kernel_cfg.META_CHANNELS
+        self.in_channels = kernel_cfg.INPUT_CHANNELS
+        self.out_channels = kernel_cfg.OUTPUT_CHANNELS
+        self.feature_map_size = kernel_cfg.FEATURE_MAP_SIZE
+        self.dilation = kernel_cfg.get('DILATION', 1)
+        self.use_mask = kernel_cfg.USE_MASK
+        self.use_attention = kernel_cfg.USE_ATTENTION
+
+
+        self.weight_mlp1 = nn.Linear(self.meta_channels, self.in_channels, bias=False)
+        self.weight_bn1 = nn.BatchNorm1d(self.in_channels)
+        self.relu1 = nn.ReLU(inplace=True)
+
+        self.aggregation_mlp = nn.Linear(
+            self.in_channels*10, self.out_channels, bias=False)
+        self.aggregation_bn = nn.BatchNorm1d(self.out_channels)
+        self.relu2 = nn.ReLU(inplace=True)
+
+        self.unfold = nn.Unfold(kernel_size=3, dilation=self.dilation, padding=self.dilation, stride=1)
+        self.fold = nn.Fold(self.feature_map_size, kernel_size=1,
+                            dilation=1, padding=0)
+
+    def forward(self, x, mask):
+
+        batch_size, _, H, W = x.shape
+
+        x_unfold = self.unfold(x)  # B*C*H*W ---> B*(C*3*3)*(H*W)
+        x_unfold = x_unfold.transpose(1, 2).contiguous().reshape(
+            (batch_size, H * W, x.size(1), -1))  # B*HW*C*9
+        x_unfold = x_unfold.transpose(2, 3).contiguous()  # B*HW*9*C
+        features_unfold = x_unfold[..., 3:]  # B*HW*9*C'
+        x_pn = x_unfold[..., 0:3]  # B*HW*9*3
+        features_unfold_p0 = features_unfold[:, :, 4, :]
+
+
+        # B*1*H*W ---> B*(1*3*3)*(H*W)
+        m_unfold = self.unfold(mask.float())
+        m_unfold = m_unfold.transpose(1, 2).contiguous().reshape(
+            (batch_size, H * W, mask.size(1), -1))  # B*HW*1*9
+        m_unfold = m_unfold.transpose(2, 3).contiguous()  # B*HW*9*1
+        m_unfold_p0 = m_unfold[:, :, 4].squeeze(-1)
+
+        x_pn_range = torch.norm(x_pn, p=2, dim=-1).unsqueeze(-1)
+        x_pn = torch.cat((x_pn, x_pn_range), dim=-1)
+        x_p0 = x_pn[:, :, 4:5, :]  # B*HW*1*4
+        pn_p0 = x_pn - x_p0  # B*HW*9*4
+        pn_p0 = pn_p0.reshape(-1, pn_p0.shape[-1]).contiguous()
+
+        geo_reduce = self.weight_mlp1(pn_p0[m_unfold.view(-1) > 0])  # B*HW*9*C'
+        geo_reduce = self.weight_bn1(geo_reduce)
+        geo_reduce = self.relu1(geo_reduce)
+        geo = m_unfold.new_zeros(batch_size, H * W, 9, self.in_channels)
+        geo[m_unfold[..., 0] > 0] = geo_reduce
+
+        geo = geo.reshape(batch_size, H * W, -1)  # B*HW*9C'
+        features_unfold = torch.cat([geo, features_unfold_p0], dim=-1)  # B*HW*10C'
+        # print("shape is ",features_unfold.shape,m_unfold_p0.shape)
+        features_unfold = self.aggregation_mlp(features_unfold[m_unfold_p0 > 0])  # N*C''
+        features_unfold = self.aggregation_bn(features_unfold)
+        features_unfold = self.relu2(features_unfold)
+        features = features_unfold.new_zeros(batch_size, H * W, self.out_channels)
+        features[m_unfold_p0 > 0] = features_unfold
+        features = features.permute(0, 2, 1).contiguous()
+        features = self.fold(features)
+
+        return features
+
+
+class MetaKernelV5(nn.Module):
+    def __init__(self, kernel_cfg):
+        super().__init__()
+        self.meta_channels = kernel_cfg.META_CHANNELS
+        self.in_channels = kernel_cfg.INPUT_CHANNELS
+        self.out_channels = kernel_cfg.OUTPUT_CHANNELS
+        self.feature_map_size = kernel_cfg.FEATURE_MAP_SIZE
+        self.dilation = kernel_cfg.get('DILATION', 1)
+
+        self.weight_mlp1 = nn.Linear(self.meta_channels, 16, bias=False)
+        self.weight_bn1 = nn.BatchNorm1d(16)
+        self.relu1 = nn.ReLU(inplace=True)
+        self.weight_mlp2 = nn.Linear(16, 1)
+        self.softmax = nn.Softmax(dim=-1)
+
+        self.geo_mlp1 = nn.Linear(self.meta_channels, self.in_channels, bias=False)
+        self.geo_bn1 = nn.BatchNorm1d(self.in_channels)
+        self.relu1_geo = nn.ReLU(inplace=True)
+
+        self.aggregation_mlp = nn.Linear(
+            self.in_channels*2, self.out_channels, bias=False)
+        self.aggregation_bn = nn.BatchNorm1d(self.out_channels)
+        self.relu2 = nn.ReLU(inplace=True)
+
+
+        self.unfold = nn.Unfold(kernel_size=3, dilation=self.dilation, padding=self.dilation, stride=1)
+        self.fold = nn.Fold(self.feature_map_size, kernel_size=1,
+                            dilation=1, padding=0)
+
+
+    def forward(self, x, mask):
+
+        batch_size, _, H, W = x.shape
+
+        x_unfold = self.unfold(x)  # B*C*H*W ---> B*(C*3*3)*(H*W)
+        x_unfold = x_unfold.transpose(1, 2).contiguous().reshape(
+            (batch_size, H * W, x.size(1), -1))  # B*HW*C*9
+        x_unfold = x_unfold.transpose(2, 3).contiguous()  # B*HW*9*C
+        features_unfold = x_unfold[..., 3:]  # B*HW*9*C'
+        x_pn = x_unfold[..., 0:3]  # B*HW*9*3
+
+        # B*1*H*W ---> B*(1*3*3)*(H*W)
+        m_unfold = self.unfold(mask.float())
+        m_unfold = m_unfold.transpose(1, 2).contiguous().reshape(
+            (batch_size, H * W, mask.size(1), -1))  # B*HW*1*9
+        m_unfold = m_unfold.transpose(2, 3).contiguous()  # B*HW*9*1
+        m_unfold_p0 = m_unfold[:, :, 4].squeeze(-1)
+
+        x_pn_range = torch.norm(x_pn, p=2, dim=-1).unsqueeze(-1)
+        x_pn = torch.cat((x_pn, x_pn_range), dim=-1)
+        x_p0 = x_pn[:, :, 4:5, :]  # B*HW*1*4
+        pn_p0 = x_pn - x_p0  # B*HW*9*4
+        # pn_p0 = pn_p0.reshape(-1, pn_p0.shape[-1]).contiguous()
+
+        weights_reduce = self.weight_mlp1(pn_p0[m_unfold[...,0] > 0])  # N*16
+        weights_reduce=self.weight_bn1(weights_reduce)
+        weights_reduce=self.relu1(weights_reduce)
+        weights_reduce=self.weight_mlp2(weights_reduce) # N*1
+        weights = m_unfold.new_zeros(batch_size, H * W, 9, 1)
+        weights[m_unfold[..., 0] > 0] = weights_reduce
+
+        weights = weights.squeeze(-1)
+        weights = self.softmax(weights)
+        weights = weights.unsqueeze(-1)
+
+        features_unfold = weights * features_unfold  # B*HW*9*C'
+        features_unfold=features_unfold.sum(dim=2,keepdim=True) # B*HW*1*C'
+
+        geo_reduce = self.geo_mlp1(pn_p0[m_unfold[...,0] > 0])  # N*16
+        geo_reduce = self.geo_bn1(geo_reduce)
+        geo_reduce = self.relu1_geo(geo_reduce)
+        geo = geo_reduce.new_zeros(batch_size, H * W, 9, self.in_channels)
+        geo[m_unfold[..., 0] > 0] = geo_reduce
+        geo=weights*geo  # B*HW*9*C'
+        geo=geo.sum(dim=2,keepdim=True) # B*HW*1*C'
+
+        features_unfold=torch.cat([features_unfold,geo],dim=-1)  # B*HW*1*2C'
+        features_unfold = features_unfold.reshape((batch_size, H*W, -1))  # B*HW*2C'
+
+        features_unfold = self.aggregation_mlp(features_unfold[m_unfold_p0>0])  # N*C''
+        features_unfold = self.aggregation_bn(features_unfold)
+        features_unfold = self.relu2(features_unfold)
+
+        features = features_unfold.new_zeros(batch_size, H * W, self.out_channels)
+        features[m_unfold_p0 > 0] = features_unfold
+        features = features.permute(0, 2, 1).contiguous()
+        features = self.fold(features)
+
+
+        return features
+
+
 def main():
 
     #net = EdgeConvKernel(32, 32, (48, 512), reduced=False,
     #                     use_mask=True).cuda()
     from easydict import EasyDict
-    H = 48*2
-    W = 512*2
+    H = 48
+    W = 512*4
     r = 0.5
     meta_cfg = {
         'META_CHANNELS': 4,
@@ -853,6 +1109,7 @@ def main():
         'USE_ATTENTION': True,
         'REDUCED': True,
         'FEATURE_MAP_SIZE': (H, W),
+        'USE_ATTENTION': True
         # 'RESIDUAL': True
             }
 
@@ -860,7 +1117,7 @@ def main():
         'INPUT_CHANNELS': 32,
         'OUTPUT_CHANNELS': 32,
         'USE_MASK': True,
-        'REDUCED': True,
+        'REDUCED': False,
         'FEATURE_MAP_SIZE': (H, W)}
 
     meta_att_cfg = {
@@ -868,23 +1125,35 @@ def main():
         'INPUT_CHANNELS': 32,
         'OUTPUT_CHANNELS': 32,
         'USE_MASK': True,
-        'REDUCED': False,
+        'REDUCED': True,
         'FEATURE_MAP_SIZE': (H, W),
-        'RESIDUAL': True
+        'RESIDUAL': True,
+        'USE_ATTENTION':True
     }
-    # net = MetaKernel(EasyDict(meta_cfg)).cuda()
+    net = MetaKernel(EasyDict(meta_att_cfg)).cuda()
+    # net=nn.Sequential(nn.Conv2d(32,32,kernel_size=3,stride=1,padding=1,bias=False),
+    #                   nn.BatchNorm2d(32),
+    #                   nn.ReLU(),
+    #                   nn.Conv2d(32,32,kernel_size=3,stride=1,padding=1,bias=False),
+    #                   nn.BatchNorm2d(32),
+    #                   nn.ReLU(),
+    #                   ).cuda()
+    # net=MetaKernelReduced(EasyDict(meta_att_cfg)).cuda()
+    # net=MetaKernelV5(EasyDict(meta_att_cfg)).cuda()
     # net=EdgeConvKernel(EasyDict(edge_cfg)).cuda()
-    net=MetaKernelDualAtt(EasyDict(meta_att_cfg)).cuda()
-
+    # net=MetaKernelDualAtt(EasyDict(meta_att_cfg)).cuda()
+    # net=MetaKernelV4(EasyDict(meta_att_cfg)).cuda()
     inp = torch.randn(1, 35, H, W).cuda()
-    mask = torch.ones((1, 1, H, W)).cuda().to(torch.bool)
-    mask[:, :, :, :int(W * r)] = False
-    out = net(inp, mask)
+    # mask = torch.randint(0,2,(1, 1, H, W)).cuda().to(torch.bool)
+    mask=torch.ones((1,1,H,W)).cuda().bool()
+    mask[:, :, :int(H * r),:] = False
+    out = net(inp,mask)
     times = []
     for i in range(100):
         torch.cuda.synchronize()
         t1 = time.time()
-        out = net(inp, mask)
+
+        out = net(inp,mask)
         # out2=net(inp,mask,reduced=True)
         # print("out1 equal out2 ",torch.equal(out1,out2))
         # print("diff is ",(out2-out1)[:,0,:10,:10])

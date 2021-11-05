@@ -90,6 +90,7 @@ class RangeDet(Detector3DTemplate):
         backbone_fv_module = backbones_2d.__all__[self.model_cfg.BACKBONE_FV.NAME](
             in_channels=self.model_cfg.BACKBONE_FV.INPUT_CHANNELS,
             out_channels=self.model_cfg.BACKBONE_FV.OUTPUT_CHANNELS,
+            append_far=self.model_cfg.BACKBONE_FV.get('APPEND_FAR',False),
             kernel_cfg=self.model_cfg.BACKBONE_FV.get('KERNEL_CFG', None)
         )
 

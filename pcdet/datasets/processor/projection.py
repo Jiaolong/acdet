@@ -17,6 +17,7 @@ class PointProjection(object):
         proj_type = project_cfg['TYPE']
         self.proj_type = proj_type
         self.remove_empty_bboxes=project_cfg.get('REMOVE_EMPTY_BBOXES',False)
+        self.append_far=project_cfg.get('APPEND_FAR',False)
         if proj_type == 'spherical':
             self.projector = SphericalProjector(project_cfg)
         elif proj_type == 'cylindrical':
@@ -40,9 +41,18 @@ class PointProjection(object):
         # import mayavi.mlab as mlab
         # has_empty=False
         points = torch.from_numpy(points)
-        #
-        # # draw_lidar(points.numpy()[:,:3],'before')
-        results = self.projector.do_projection(points,data_dict)
+        results = self.projector.do_projection(points, data_dict)
+        # assert 'points_img_far' in results.keys(),"points_img_far not in results"
+        # if self.proj_type=='cylindrical':
+        #     draw_lidar(points.numpy()[:,:3],self.proj_type+'before')
+        #     new_points = results["points_img"].permute(1, 2, 0).contiguous()
+        #     new_mask = results["proj_masks"]
+        #     new_points = new_points[new_mask][:, :3]
+        #     draw_lidar(new_points.numpy()[:, :3], self.proj_type+'after_near')
+        #     new_points_far = results["points_img_far"].permute(1, 2, 0).contiguous()
+        #     new_mask_far = results["proj_masks_far"]
+        #     new_points_far = new_points_far[new_mask_far][:, :3]
+        #     draw_lidar(new_points_far.numpy()[:, :3], self.proj_type + 'after_far')
         #
         if self.remove_empty_bboxes and ('gt_boxes' in data_dict):
             gt_bboxes= data_dict['gt_boxes']
@@ -82,6 +92,10 @@ class PointProjection(object):
         else:
             data_dict['points_img'] = results['points_img'].numpy()
             data_dict['proj_masks'] = results['proj_masks'].numpy()
+            if self.append_far:
+                data_dict['points_img_far'] = results['points_img_far'].numpy()
+                data_dict['proj_masks_far'] = results['proj_masks_far'].numpy()
+
 
 
 class ProjectionBase(object):
@@ -194,6 +208,13 @@ class ProjectionBase(object):
         indices = torch.arange(points_depth.shape[0])
         order = torch.argsort(points_depth, descending=True)
 
+        if self.append_far:
+            indices_far = torch.arange(points_depth.shape[0])
+            order_far = torch.argsort(points_depth, descending=False)
+            indices_far = indices_far[order_far]
+            proj_col_far = proj_col[order_far].long()
+            proj_row_far = proj_row[order_far].long()
+
         indices = indices[order]
         proj_col = proj_col[order].long()
         proj_row = proj_row[order].long()
@@ -204,13 +225,23 @@ class ProjectionBase(object):
         points_img[proj_row, proj_col, -1] = points_depth[order]
         output["points_img"] = points_img
 
-                
+        if self.append_far:
+            points_img_far = -1.0 * points.new_ones(self.num_rows, self.num_cols, dim + 1)
+            points_img_far[proj_row_far, proj_col_far, :dim] = points[order_far]
+            points_img_far[proj_row_far, proj_col_far, -1] = points_depth[order_far]
+            output["points_img_far"]=points_img_far
+
         proj_point_indices = -1.0 * points.new_ones(self.num_rows, self.num_cols)
         proj_point_indices[proj_row, proj_col] = indices.float()
         # output["proj_point_indices"] = proj_point_indices
         proj_masks = (proj_point_indices != -1)
-        output["proj_masks"] = proj_masks 
-        
+        output["proj_masks"] = proj_masks
+        if self.append_far:
+            proj_point_indices_far = -1.0 * points.new_ones(self.num_rows, self.num_cols)
+            proj_point_indices_far[proj_row_far, proj_col_far] = indices_far.float()
+            proj_masks_far = (proj_point_indices_far != -1)
+            output["proj_masks_far"] = proj_masks_far
+
         points_img *= proj_masks[..., None]
         
         # for debug
@@ -227,6 +258,9 @@ class ProjectionBase(object):
             exit(0)
 
         output['points_img'] = points_img.permute(2, 0, 1).contiguous() # C, H, W
+        if self.append_far:
+            points_img_far*=proj_masks_far[...,None]
+            output['points_img_far'] = points_img_far.permute(2, 0, 1).contiguous()  # C, H, W
         self.fov_right -= rot_offset
         self.fov_left -= rot_offset
         return output
@@ -243,7 +277,7 @@ class BEVProjector(ProjectionBase):
         # self.z_min = point_cloud_range[2]
         self.x_max = point_cloud_range[3]
         self.y_max = point_cloud_range[4]
-
+        self.append_xy=cfg.get('APPEND_XY',False)
         voxel_size = cfg['VOXEL_SIZE']
         grid_size = (point_cloud_range[3:6] - point_cloud_range[0:3]) / np.array(voxel_size)
 
@@ -427,12 +461,17 @@ class BEVProjector(ProjectionBase):
         proj_row = proj_row[unique_indices]
         intensity = points[unique_indices, 3]
         elevation = points[unique_indices, 2]
+        # points_x=points[unique_indices,0]
+        # points_y=points[unique_indices,1]
         
         # Project the points.
         points_img = -1.0 * points.new_ones(self.num_rows, self.num_cols, 3)
         points_img[proj_row, proj_col, 0] = intensity # intensity
         points_img[proj_row, proj_col, 1] = elevation # height z
         points_img[proj_row, proj_col, 2] = density # density
+        # points_img[proj_row,proj_col, 0]=points_x
+        # points_img[proj_row,proj_col,1]=points_y
+        # points_img[proj_row,proj_col,2]=elevation
         output["points_img"] = points_img
 
         proj_point_indices = -1.0 * points.new_ones(self.num_rows, self.num_cols)
@@ -571,7 +610,7 @@ class CylindricalProjector(ProjectionBase):
         self.z_max = cfg.get('Z_MAX', 1.0)
         self.z_min = cfg.get('Z_MIN', -2.5)
         self.z_range = self.z_max - self.z_min
-        
+        self.append_far=cfg.get('APPEND_FAR',False)
         self.fov_left = self.to_radian(cfg.get('FOV_LEFT', 45.0)) # field of view left in rad
         self.fov_right = self.to_radian(cfg.get('FOV_RIGHT', -45.0)) # field of view right in rad
         self.fov_horizontal = abs(self.fov_left) + abs(self.fov_right)  # get field of view horizontal in rad

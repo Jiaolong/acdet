@@ -4,7 +4,7 @@ import torch.nn as nn
 import warnings
 from torch import cuda
 
-from .meta_kernel import MetaKernel,EdgeConvKernel,MetaKernelDualAtt,MetaKernelV2,MetaKernelV3
+from .meta_kernel import MetaKernel,EdgeConvKernel,MetaKernelDualAtt,MetaKernelV2,MetaKernelV3,MetaKernelV4,MetaKernelReduced,MetaKernelV5
 from mmdet.models import BACKBONES
 
 
@@ -78,6 +78,7 @@ class SALSANEXT(nn.Module):
     def __init__(self,
                  in_channels=5,
                  out_channels=32,
+                 append_far=False,
                  kernel_cfg=None):
         super(SALSANEXT, self).__init__()
 
@@ -86,6 +87,9 @@ class SALSANEXT(nn.Module):
         self.downCntx3 = ResContextBlock(32, 32)
 
         self.use_kernel = (kernel_cfg is not None)
+        self.append_far=append_far
+        if self.append_far:
+            self.downCntx2=ResContextBlock(64,32)
         self.kernel_type=None
         if self.use_kernel:
             self.kernel_type=kernel_cfg.pop("TYPE")
@@ -104,6 +108,12 @@ class SALSANEXT(nn.Module):
             self.kernel=MetaKernelV2(kernel_cfg)
         elif self.kernel_type=="meta_v3":
             self.kernel=MetaKernelV3(kernel_cfg)
+        elif self.kernel_type=="meta_v4":
+            self.kernel=MetaKernelV4(kernel_cfg)
+        elif self.kernel_type=="meta_v5":
+            self.kernel=MetaKernelV5(kernel_cfg)
+        elif self.kernel_type=="meta_reduce":
+            self.kernel=MetaKernelReduced(kernel_cfg)
 
         self.resBlock1 = ResBlock(
             32, 2 * 32, 0.2, pooling=True, drop_out=False)
@@ -131,6 +141,9 @@ class SALSANEXT(nn.Module):
         
         x = data_dict['points_img']
         mask = data_dict['proj_masks']
+        if self.append_far:
+            x_far=data_dict['points_img_far']
+            mask_far=data_dict['proj_masks_far']
 
         if self.use_kernel and self.kernel_layer_index == 0:
             # torch.cuda.synchronize()
@@ -140,10 +153,18 @@ class SALSANEXT(nn.Module):
             coord = x[:, :3, :, :]
             downCntx_coord = torch.cat([coord, x], dim=1)
             x = self.kernel(downCntx_coord, mask)
+            if self.append_far:
+                mask_far = mask_far.unsqueeze(1)
+                coord_far = x_far[:, :3, :, :]
+                downCntx_coord_far = torch.cat([coord_far, x_far], dim=1)
+                x_far = self.kernel(downCntx_coord_far, mask_far)
+                x=torch.cat([x,x_far,],dim=1)
             # torch.cuda.synchronize()
             # print("meta kernel time is ", time.time() - t1)
 
         downCntx = self.downCntx(x)  # N, 32, H, W
+        if self.append_far:
+            downCntx_far=self.downCntx(x_far)
 
         if self.use_kernel and self.kernel_layer_index == 1:
             # torch.cuda.synchronize()
@@ -153,6 +174,12 @@ class SALSANEXT(nn.Module):
             coord=x[:, :3, :, :]
             downCntx_coord = torch.cat([coord, downCntx], dim=1)
             downCntx = self.kernel(downCntx_coord, mask)
+            if self.append_far:
+                mask_far = mask_far.unsqueeze(1)
+                coord_far = x_far[:, :3, :, :]
+                downCntx_coord_far = torch.cat([coord_far, downCntx_far], dim=1)
+                downCntx_far = self.kernel(downCntx_coord_far, mask_far)
+                downCntx=torch.cat([downCntx,downCntx_far],dim=1)
             # torch.cuda.synchronize()
             # print("meta kernel time is ", time.time() - t1)
 
