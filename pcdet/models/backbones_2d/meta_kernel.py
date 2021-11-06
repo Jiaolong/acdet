@@ -55,8 +55,8 @@ class MetaKernel(nn.Module):
         x_unfold = x_unfold.transpose(1, 2).contiguous().reshape(
             (batch_size, H*W, x.size(1), -1))  # B*HW*C*9
         x_unfold = x_unfold.transpose(2, 3).contiguous()  # B*HW*9*C
-        features_unfold = x_unfold[..., 3:]  # B*HW*9*C'
-        x_pn = x_unfold[..., 0:3]  # B*HW*9*3
+        features_unfold = x_unfold[..., 4:]  # B*HW*9*C'
+        x_pn = x_unfold[..., 0:4]  # B*HW*9*3
 
         if mask is not None and self.use_mask:
             # B*1*H*W ---> B*(1*3*3)*(H*W)
@@ -65,8 +65,8 @@ class MetaKernel(nn.Module):
                 (batch_size, H * W, mask.size(1), -1))  # B*HW*1*9
             m_unfold = m_unfold.transpose(2, 3).contiguous()  # B*HW*9*1
 
-        x_pn_range = torch.norm(x_pn, p=2, dim=-1).unsqueeze(-1)
-        x_pn = torch.cat((x_pn, x_pn_range), dim=-1)
+        # x_pn_range = torch.norm(x_pn, p=2, dim=-1).unsqueeze(-1)
+        # x_pn = torch.cat((x_pn, x_pn_range), dim=-1)
         x_p0 = x_pn[:, :, 4:5, :]  # B*HW*1*4
         pn_p0 = x_pn-x_p0  # B*HW*9*4
         weights = self.weight_mlp1(pn_p0)  # B*HW*9*C'
@@ -115,8 +115,8 @@ class MetaKernel(nn.Module):
         x_unfold = x_unfold.transpose(1, 2).contiguous().reshape(
             (batch_size, H*W, x.size(1), -1))  # B*HW*C*9
         x_unfold = x_unfold.transpose(2, 3).contiguous()  # B*HW*9*C
-        features_unfold = x_unfold[..., 3:]  # B*HW*9*C'
-        x_pn = x_unfold[..., 0:3]  # B*HW*9*3
+        features_unfold = x_unfold[..., 4:]  # B*HW*9*C'
+        x_pn = x_unfold[..., 0:4]  # B*HW*9*3
 
         if mask is not None and self.use_mask:
             # B*1*H*W ---> B*(1*3*3)*(H*W)
@@ -125,8 +125,8 @@ class MetaKernel(nn.Module):
                 (batch_size, H * W, mask.size(1), -1))  # B*HW*1*9
             m_unfold = m_unfold.transpose(2, 3).contiguous()  # B*HW*9*1
 
-        x_pn_range = torch.norm(x_pn, p=2, dim=-1).unsqueeze(-1)
-        x_pn = torch.cat((x_pn, x_pn_range), dim=-1)
+        # x_pn_range = torch.norm(x_pn, p=2, dim=-1).unsqueeze(-1)
+        # x_pn = torch.cat((x_pn, x_pn_range), dim=-1)
         x_p0 = x_pn[:, :, 4:5, :]  # B*HW*1*4
         pn_p0 = x_pn-x_p0  # B*HW*9*4
         pn_p0 = pn_p0.reshape(-1, pn_p0.shape[-1]).contiguous()
@@ -202,8 +202,8 @@ class MetaKernelReduced(nn.Module):
         x_unfold = x_unfold.transpose(1, 2).contiguous().reshape(
             (batch_size, H * W, x.size(1), -1))  # B*HW*C*9
         x_unfold = x_unfold.transpose(2, 3).contiguous()  # B*HW*9*C
-        features_unfold = x_unfold[..., 3:]  # B*HW*9*C'
-        x_pn = x_unfold[..., 0:3]  # B*HW*9*3
+        features_unfold = x_unfold[..., 4:]  # B*HW*9*C'
+        x_pn = x_unfold[..., 0:4]  # B*HW*9*3
         # B*1*H*W ---> B*(1*3*3)*(H*W)
         m_unfold = self.unfold(mask.float())
         m_unfold = m_unfold.transpose(1, 2).contiguous().reshape(
@@ -214,8 +214,8 @@ class MetaKernelReduced(nn.Module):
 
         # assert m_unfold_p0==m_unfold_p0_,"error"
 
-        x_pn_range = torch.norm(x_pn, p=2, dim=-1).unsqueeze(-1)
-        x_pn = torch.cat((x_pn, x_pn_range), dim=-1)
+        # x_pn_range = torch.norm(x_pn, p=2, dim=-1).unsqueeze(-1)
+        # x_pn = torch.cat((x_pn, x_pn_range), dim=-1)
         x_p0 = x_pn[:, :, 4:5, :]  # B*HW*1*4
         pn_p0 = x_pn - x_p0  # B*HW*9*4
         pn_p0 = pn_p0.reshape(-1, pn_p0.shape[-1]).contiguous()
@@ -304,8 +304,8 @@ class MetaKernelV3(nn.Module):
         x_unfold = x_unfold.transpose(1, 2).contiguous().reshape(
             (batch_size, H * W, x.size(1), -1))  # B*HW*C*9
         x_unfold = x_unfold.transpose(2, 3).contiguous()  # B*HW*9*C
-        features_unfold = x_unfold[..., 3:]  # B*HW*9*C'
-        x_pn = x_unfold[..., 0:3]  # B*HW*9*3
+        features_unfold = x_unfold[..., 4:]  # B*HW*9*C'
+        x_pn = x_unfold[..., 0:4]  # B*HW*9*3
 
         if mask is not None and self.use_mask:
             # B*1*H*W ---> B*(1*3*3)*(H*W)
@@ -317,8 +317,7 @@ class MetaKernelV3(nn.Module):
         x_pn_azimuth = torch.atan2(
             x_pn[..., 1], x_pn[..., 0]).unsqueeze(-1)  # B*HW*9*1
         x_p0_azimuth = x_pn_azimuth[:, :, 4:5]  # B*HW*1*1
-        x_pn_range = torch.norm(
-            x_pn[..., :3], p=2, dim=-1).unsqueeze(-1)  # B*HW*9*1
+        x_pn_range = x_pn[...,3:4] # B*HW*9*1
         x_p0_range = x_pn_range[:, :, 4:5]  # B*HW*1*1
         x_pn_depth = torch.norm(x_pn[..., :2], p=2, dim=-1)  # B*HW*9*1
         x_pn_inclination = torch.atan2(
@@ -387,8 +386,8 @@ class MetaKernelV3(nn.Module):
         x_unfold = x_unfold.transpose(1, 2).contiguous().reshape(
             (batch_size, H * W, x.size(1), -1))  # B*HW*C*9
         x_unfold = x_unfold.transpose(2, 3).contiguous()  # B*HW*9*C
-        features_unfold = x_unfold[..., 3:]  # B*HW*9*C'
-        x_pn = x_unfold[..., 0:3]  # B*HW*9*3
+        features_unfold = x_unfold[..., 4:]  # B*HW*9*C'
+        x_pn = x_unfold[..., 0:4]  # B*HW*9*3
 
         if mask is not None and self.use_mask:
             # B*1*H*W ---> B*(1*3*3)*(H*W)
@@ -400,8 +399,7 @@ class MetaKernelV3(nn.Module):
         x_pn_azimuth = torch.atan2(
             x_pn[..., 1], x_pn[..., 0]).unsqueeze(-1)  # B*HW*9*1
         x_p0_azimuth = x_pn_azimuth[:, :, 4:5]  # B*HW*1*1
-        x_pn_range = torch.norm(
-            x_pn[..., :3], p=2, dim=-1).unsqueeze(-1)  # B*HW*9*1
+        x_pn_range = x_pn[...,3:4]  # B*HW*9*1
         x_p0_range = x_pn_range[:, :, 4:5]  # B*HW*1*1
         x_pn_depth = torch.norm(x_pn[..., :2], p=2, dim=-1)  # B*HW*9*1
         x_pn_inclination = torch.atan2(
@@ -638,7 +636,7 @@ class EdgeConvKernel(nn.Module):
             (batch_size, H * W, x.size(1), -1))  # B*HW*C*9
         x_unfold = x_unfold.transpose(2, 3).contiguous()  # B*HW*9*C
 
-        feature_unfold = x_unfold[..., 3:]  # B*HW*9*C'
+        feature_unfold = x_unfold[..., 4:]  # B*HW*9*C'
         feature_x0_unfold = feature_unfold[:, :, 4:5].expand(-1, -1, 9, -1)
 
         if mask is not None and self.use_mask:
@@ -648,12 +646,11 @@ class EdgeConvKernel(nn.Module):
                 (batch_size, H * W, mask.size(1), -1))  # B*HW*1*9
             m_unfold = m_unfold.transpose(2, 3).contiguous()  # B*HW*9*1
 
-        x_pn = x_unfold[..., 0:3]  # B*HW*9*3
+        x_pn = x_unfold[..., 0:4]  # B*HW*9*3
         x_pn_azimuth = torch.atan2(
             x_pn[..., 1], x_pn[..., 0]).unsqueeze(-1)  # B*HW*9*1
         x_p0_azimuth = x_pn_azimuth[:, :, 4:5]  # B*HW*1*1
-        x_pn_range = torch.norm(
-            x_pn[..., :3], p=2, dim=-1).unsqueeze(-1)  # B*HW*9*1
+        x_pn_range=x_pn[...,3:4]  # B*HW*9*1
         x_p0_range = x_pn_range[:, :, 4:5]  # B*HW*1*1
         x_pn_depth = torch.norm(x_pn[..., :2], p=2, dim=-1)  # B*HW*9*1
         x_pn_inclination = torch.atan2(
@@ -707,10 +704,10 @@ class EdgeConvKernel(nn.Module):
             (batch_size, H * W, x.size(1), -1))  # B*HW*C*9
         x_unfold = x_unfold.transpose(2, 3).contiguous()  # B*HW*9*C
 
-        features_unfold = x_unfold[..., 3:]  # B*HW*9*C'
+        features_unfold = x_unfold[..., 4:]  # B*HW*9*C'
         features_x0_unfold = features_unfold[:, :,
                                              4:5].expand(-1, -1, 9, -1)  # B*HW*1*C'
-        x_pn = x_unfold[..., 0:3]  # B*HW*9*3
+        x_pn = x_unfold[..., 0:4]  # B*HW*9*3
 
         m_unfold = self.unfold(mask.float())  # B*1*H*W ---> B*(1*3*3)*(H*W)
         m_unfold = m_unfold.transpose(1, 2).contiguous().reshape(
@@ -726,8 +723,7 @@ class EdgeConvKernel(nn.Module):
         x_pn_azimuth = torch.atan2(
             x_pn[..., 1], x_pn[..., 0]).unsqueeze(-1)  # B*HW*9*1
         x_p0_azimuth = x_pn_azimuth[:,:, 4:5]  #  B*HW*1*1
-        x_pn_range = torch.norm(
-            x_pn[..., :3], p=2, dim=-1).unsqueeze(-1)  # B*HW*9*1
+        x_pn_range = x_pn[...,3:4]  # B*HW*9*1
         x_p0_range = x_pn_range[:,:, 4:5]  # B*HW*1*1
         x_pn_depth = torch.norm(x_pn[..., :2], p=2, dim=-1)  # B*HW*9
         x_pn_inclination = torch.atan2(
@@ -823,8 +819,8 @@ class MetaKernelDualAtt(nn.Module):
         x_unfold = x_unfold.transpose(1, 2).contiguous().reshape(
             (batch_size, H * W, x.size(1), -1))  # B*HW*C*9
         x_unfold = x_unfold.transpose(2, 3).contiguous()  # B*HW*9*C
-        features_unfold = x_unfold[..., 3:]  # B*HW*9*C'
-        x_pn = x_unfold[..., 0:3]  # B*HW*9*3
+        features_unfold = x_unfold[..., 4:]  # B*HW*9*C'
+        x_pn = x_unfold[..., 0:4]  # B*HW*9*3
 
         if mask is not None and self.use_mask:
             # B*1*H*W ---> B*(1*3*3)*(H*W)
@@ -833,8 +829,8 @@ class MetaKernelDualAtt(nn.Module):
                 (batch_size, H * W, mask.size(1), -1))  # B*HW*1*9
             m_unfold = m_unfold.transpose(2, 3).contiguous()  # B*HW*9*1
 
-        x_pn_range = torch.norm(x_pn, p=2, dim=-1).unsqueeze(-1)
-        x_pn = torch.cat((x_pn, x_pn_range), dim=-1)
+        # x_pn_range = torch.norm(x_pn, p=2, dim=-1).unsqueeze(-1)
+        # x_pn = torch.cat((x_pn, x_pn_range), dim=-1)
         x_p0 = x_pn[:, :, 4:5, :]  # B*HW*1*4
         pn_p0 = x_pn - x_p0  # B*HW*9*4
         weights_spatial = self.weight_mlp_spatial(pn_p0)  # B*HW*9*C'
@@ -875,8 +871,8 @@ class MetaKernelDualAtt(nn.Module):
         x_unfold = x_unfold.transpose(1, 2).contiguous().reshape(
             (batch_size, H * W, x.size(1), -1))  # B*HW*C*9
         x_unfold = x_unfold.transpose(2, 3).contiguous()  # B*HW*9*C
-        features_unfold = x_unfold[..., 3:]  # B*HW*9*C'
-        x_pn = x_unfold[..., 0:3]  # B*HW*9*3
+        features_unfold = x_unfold[..., 4:]  # B*HW*9*C'
+        x_pn = x_unfold[..., 0:4]  # B*HW*9*3
 
         if mask is not None and self.use_mask:
             # B*1*H*W ---> B*(1*3*3)*(H*W)
@@ -885,8 +881,8 @@ class MetaKernelDualAtt(nn.Module):
                 (batch_size, H * W, mask.size(1), -1))  # B*HW*1*9
             m_unfold = m_unfold.transpose(2, 3).contiguous()  # B*HW*9*1
 
-        x_pn_range = torch.norm(x_pn, p=2, dim=-1).unsqueeze(-1)
-        x_pn = torch.cat((x_pn, x_pn_range), dim=-1)
+        # x_pn_range = torch.norm(x_pn, p=2, dim=-1).unsqueeze(-1)
+        # x_pn = torch.cat((x_pn, x_pn_range), dim=-1)
         x_p0 = x_pn[:, :, 4:5, :]  # B*HW*1*4
         pn_p0 = x_pn - x_p0  # B*HW*9*4
         pn_p0 = pn_p0.reshape(-1, pn_p0.shape[-1]).contiguous()
@@ -964,8 +960,8 @@ class MetaKernelV4(nn.Module):
         x_unfold = x_unfold.transpose(1, 2).contiguous().reshape(
             (batch_size, H * W, x.size(1), -1))  # B*HW*C*9
         x_unfold = x_unfold.transpose(2, 3).contiguous()  # B*HW*9*C
-        features_unfold = x_unfold[..., 3:]  # B*HW*9*C'
-        x_pn = x_unfold[..., 0:3]  # B*HW*9*3
+        features_unfold = x_unfold[..., 4:]  # B*HW*9*C'
+        x_pn = x_unfold[..., 0:4]  # B*HW*9*3
         features_unfold_p0 = features_unfold[:, :, 4, :]
 
 
@@ -976,8 +972,8 @@ class MetaKernelV4(nn.Module):
         m_unfold = m_unfold.transpose(2, 3).contiguous()  # B*HW*9*1
         m_unfold_p0 = m_unfold[:, :, 4].squeeze(-1)
 
-        x_pn_range = torch.norm(x_pn, p=2, dim=-1).unsqueeze(-1)
-        x_pn = torch.cat((x_pn, x_pn_range), dim=-1)
+        # x_pn_range = torch.norm(x_pn, p=2, dim=-1).unsqueeze(-1)
+        # x_pn = torch.cat((x_pn, x_pn_range), dim=-1)
         x_p0 = x_pn[:, :, 4:5, :]  # B*HW*1*4
         pn_p0 = x_pn - x_p0  # B*HW*9*4
         pn_p0 = pn_p0.reshape(-1, pn_p0.shape[-1]).contiguous()
@@ -1017,27 +1013,35 @@ class MetaKernelV5(nn.Module):
         self.out_channels = kernel_cfg.OUTPUT_CHANNELS
         self.feature_map_size = kernel_cfg.FEATURE_MAP_SIZE
         self.dilation = kernel_cfg.get('DILATION', 1)
+        self.reduction = kernel_cfg.get('REDUCTION', 'mean')
 
-        self.weight_mlp1 = nn.Linear(self.meta_channels, 16, bias=False)
-        self.weight_bn1 = nn.BatchNorm1d(16)
-        self.relu1 = nn.ReLU(inplace=True)
-        self.weight_mlp2 = nn.Linear(16, 1)
+        self.pointwise_mlp = nn.Linear(self.in_channels, 8)
+
+        self.weight_mlp1 = nn.Linear(self.meta_channels, 8, bias=False)
+        self.weight_bn1 = nn.BatchNorm1d(8)
+        self.weight_relu1 = nn.ReLU(inplace=True)
+        self.weight_mlp2 = nn.Linear(8, 1)
         self.softmax = nn.Softmax(dim=-1)
 
-        self.geo_mlp1 = nn.Linear(self.meta_channels, self.in_channels, bias=False)
-        self.geo_bn1 = nn.BatchNorm1d(self.in_channels)
-        self.relu1_geo = nn.ReLU(inplace=True)
+        self.geo_mlp1 = nn.Linear(self.meta_channels, 8, bias=False)
+        self.geo_bn1 = nn.BatchNorm1d(8)
+        self.geo_relu1 = nn.ReLU(inplace=True)
+        self.geo_mlp2 = nn.Linear(8, 8, bias=False)
+        self.geo_bn2 = nn.BatchNorm1d(8)
+        self.geo_relu2 = nn.ReLU(inplace=True)
 
-        self.aggregation_mlp = nn.Linear(
-            self.in_channels*2, self.out_channels, bias=False)
+        if self.reduction == "concat":
+            self.aggregation_mlp = nn.Linear(
+                18 * 8, self.out_channels, bias=False)
+        else:
+            self.aggregation_mlp = nn.Linear(
+                16, self.out_channels, bias=False)
         self.aggregation_bn = nn.BatchNorm1d(self.out_channels)
-        self.relu2 = nn.ReLU(inplace=True)
-
+        self.aggregation_relu = nn.ReLU(inplace=True)
 
         self.unfold = nn.Unfold(kernel_size=3, dilation=self.dilation, padding=self.dilation, stride=1)
         self.fold = nn.Fold(self.feature_map_size, kernel_size=1,
                             dilation=1, padding=0)
-
 
     def forward(self, x, mask):
 
@@ -1047,8 +1051,8 @@ class MetaKernelV5(nn.Module):
         x_unfold = x_unfold.transpose(1, 2).contiguous().reshape(
             (batch_size, H * W, x.size(1), -1))  # B*HW*C*9
         x_unfold = x_unfold.transpose(2, 3).contiguous()  # B*HW*9*C
-        features_unfold = x_unfold[..., 3:]  # B*HW*9*C'
-        x_pn = x_unfold[..., 0:3]  # B*HW*9*3
+        features_unfold = x_unfold[..., 4:]  # B*HW*9*C'
+        x_pn = x_unfold[..., 0:4]  # B*HW*9*3
 
         # B*1*H*W ---> B*(1*3*3)*(H*W)
         m_unfold = self.unfold(mask.float())
@@ -1057,46 +1061,55 @@ class MetaKernelV5(nn.Module):
         m_unfold = m_unfold.transpose(2, 3).contiguous()  # B*HW*9*1
         m_unfold_p0 = m_unfold[:, :, 4].squeeze(-1)
 
-        x_pn_range = torch.norm(x_pn, p=2, dim=-1).unsqueeze(-1)
-        x_pn = torch.cat((x_pn, x_pn_range), dim=-1)
         x_p0 = x_pn[:, :, 4:5, :]  # B*HW*1*4
         pn_p0 = x_pn - x_p0  # B*HW*9*4
-        # pn_p0 = pn_p0.reshape(-1, pn_p0.shape[-1]).contiguous()
 
-        weights_reduce = self.weight_mlp1(pn_p0[m_unfold[...,0] > 0])  # N*16
-        weights_reduce=self.weight_bn1(weights_reduce)
-        weights_reduce=self.relu1(weights_reduce)
-        weights_reduce=self.weight_mlp2(weights_reduce) # N*1
-        weights = m_unfold.new_zeros(batch_size, H * W, 9, 1)
+        weights_reduce = self.weight_mlp1(pn_p0[m_unfold[..., 0] > 0])  # N*16
+        weights_reduce = self.weight_bn1(weights_reduce)
+        weights_reduce = self.weight_relu1(weights_reduce)
+        weights_reduce = self.weight_mlp2(weights_reduce)  # N*1
+        weights = weights_reduce.new_zeros(batch_size, H * W, 9, 1)
         weights[m_unfold[..., 0] > 0] = weights_reduce
-
         weights = weights.squeeze(-1)
         weights = self.softmax(weights)
         weights = weights.unsqueeze(-1)
 
+        features_unfold = self.pointwise_mlp(features_unfold)
         features_unfold = weights * features_unfold  # B*HW*9*C'
-        features_unfold=features_unfold.sum(dim=2,keepdim=True) # B*HW*1*C'
 
-        geo_reduce = self.geo_mlp1(pn_p0[m_unfold[...,0] > 0])  # N*16
+        if self.reduction == 'mean':
+            features_unfold = features_unfold.mean(dim=2)  # B*HW*1*C'
+        elif self.reduction == "max":
+            features_unfold, _ = features_unfold.max(dim=2)
+        else:
+            features_unfold = features_unfold.reshape(batch_size, H * W, -1)
+
+        geo_reduce = self.geo_mlp1(pn_p0[m_unfold[..., 0] > 0])  # N*16
         geo_reduce = self.geo_bn1(geo_reduce)
-        geo_reduce = self.relu1_geo(geo_reduce)
-        geo = geo_reduce.new_zeros(batch_size, H * W, 9, self.in_channels)
+        geo_reduce = self.geo_relu1(geo_reduce)
+        geo_reduce = self.geo_mlp2(geo_reduce)  # N*8
+        geo_reduce = self.geo_bn2(geo_reduce)
+        geo_reduce = self.geo_relu2(geo_reduce)
+        geo = geo_reduce.new_zeros(batch_size, H * W, 9, 8)
         geo[m_unfold[..., 0] > 0] = geo_reduce
-        geo=weights*geo  # B*HW*9*C'
-        geo=geo.sum(dim=2,keepdim=True) # B*HW*1*C'
+        geo = weights * geo  # B*HW*9*C'
 
-        features_unfold=torch.cat([features_unfold,geo],dim=-1)  # B*HW*1*2C'
-        features_unfold = features_unfold.reshape((batch_size, H*W, -1))  # B*HW*2C'
+        if self.reduction == "mean":
+            geo = geo.mean(dim=2)  # B*HW*1*C'
+        elif self.reduction == "max":
+            geo, _ = geo.max(dim=2)
+        else:
+            geo = geo.reshape(batch_size, H * W, -1)
 
-        features_unfold = self.aggregation_mlp(features_unfold[m_unfold_p0>0])  # N*C''
+        features_unfold = torch.cat([features_unfold, geo], dim=-1)  # B*HW*2C'
+        features_unfold = self.aggregation_mlp(features_unfold[m_unfold_p0 > 0])  # N*C''
         features_unfold = self.aggregation_bn(features_unfold)
-        features_unfold = self.relu2(features_unfold)
+        features_unfold = self.aggregation_relu(features_unfold)
 
         features = features_unfold.new_zeros(batch_size, H * W, self.out_channels)
         features[m_unfold_p0 > 0] = features_unfold
         features = features.permute(0, 2, 1).contiguous()
         features = self.fold(features)
-
 
         return features
 
