@@ -17,7 +17,7 @@ from pcdet.models import build_network
 from pcdet.utils import common_utils
 from pcdet.models import load_data_to_gpu
 import tqdm
-
+from spconv.utils import VoxelGeneratorV2 as VoxelGenerator
 def parse_config():
     parser = argparse.ArgumentParser(description='arg parser')
     parser.add_argument('--cfg_file', type=str, default=None, help='specify the config for training')
@@ -68,14 +68,37 @@ def main():
     H = 48
     W = 512
     r = 0.5
-    H_bev= 496
-    W_bev=432
+    # H_bev= 496
+    # W_bev=432
+    point_cloud_range = [0, -39.68, -3, 69.12, 39.68, 1]
+    voxel_size = [0.16, 0.16, 4]
+
+    voxel_generator = VoxelGenerator(
+        voxel_size=voxel_size,
+        point_cloud_range=point_cloud_range,
+        max_num_points=50,
+        max_voxels=18000
+    )
+    cfg.DATA_CONFIG.POINT_CLOUD_RANGE=point_cloud_range
+
+    for cur_cfg in cfg.DATA_CONFIG.DATA_PROCESSOR:
+        if cur_cfg.NAME=='transform_points_to_voxels':
+            cur_cfg.VOXEL_SIZE=voxel_size
+
     for cur_cfg in cfg.DATA_CONFIG.DATA_PROCESSOR:
         if cur_cfg.NAME=="project_points":
             cur_cfg.NUM_COLS=W
             cur_cfg.NUM_ROWS=H
-    if cfg.MODEL.BACKBONE_FV.get('KERNEL_CFG',None):
-        cfg.MODEL.BACKBONE_FV.KERNEL_CFG.FEATURE_MAP_SIZE=[H,W]
+    if cfg.MODEL.get('BACKBONE_FV',None):
+        if cfg.MODEL.BACKBONE_FV.get('KERNEL_CFG',None):
+            cfg.MODEL.BACKBONE_FV.KERNEL_CFG.FEATURE_MAP_SIZE=[H,W]
+
+    point_cloud_range = np.array(point_cloud_range)
+    voxel_size = np.array([0.16, 0.16, 4])
+    grid_size = (point_cloud_range[3:6] - point_cloud_range[0:3]) / np.array(voxel_size)
+    grid_size = np.round(grid_size).astype(np.int64)
+    H_bev= grid_size[1]
+    W_bev=grid_size[0]
 
     dataset = KittiDataset(
         dataset_cfg=cfg.DATA_CONFIG,
@@ -113,6 +136,20 @@ def main():
         mask_bev = torch.ones((1, H_bev, W_bev)).cuda().bool()
         mask_bev[:, :int(H_bev * r), :] = False
         batch_dict['proj_masks_bev'] =mask_bev
+        cloud_range=np.zeros(4,dtype=np.float)
+        cloud_min = np.zeros(4, dtype=np.float)
+        cloud_range[:3]=point_cloud_range[3:]-point_cloud_range[:3]
+        cloud_min[:3]=point_cloud_range[:3]
+        cloud_range[3]=100
+        cloud_range=cloud_range.reshape(1,4)
+        cloud_min= cloud_min.reshape(1,4)
+
+        batch_dict['points']=np.random.rand(24000,4)*cloud_range+cloud_min
+        voxel_output = voxel_generator.generate(batch_dict['points'])
+        batch_dict['voxels']=torch.from_numpy(voxel_output['voxels']).cuda().float()
+        coordinates = np.pad(voxel_output['coordinates'], ((0, 0), (1, 0)), mode='constant', constant_values=0)
+        batch_dict['voxel_coords']=torch.from_numpy(coordinates).cuda().long()
+        batch_dict['voxel_num_points']=torch.from_numpy(voxel_output['num_points_per_voxel']).cuda()
 
         progress_bar = tqdm.tqdm(total=num_sample, leave=True, desc='eval', dynamic_ncols=True)
         start_time = time.time()

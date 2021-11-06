@@ -36,7 +36,7 @@ class ResidualAttentionBEVBackbone(nn.Module):
                     stride=layer_strides[idx], padding=0, bias=False
                 ),
                 nn.BatchNorm2d(num_filters[idx], eps=1e-3, momentum=0.01),
-                nn.ReLU()
+                nn.ReLU(inplace=True)
             ]
 
             # attention block
@@ -47,11 +47,11 @@ class ResidualAttentionBEVBackbone(nn.Module):
                     stride=layer_strides[idx], padding=0, bias=False
                 ),
                 nn.BatchNorm2d(num_filters[idx], eps=1e-3, momentum=0.01),
-                nn.ReLU(),
+                nn.ReLU(inplace=True),
 
                 nn.Conv2d(num_filters[idx], num_filters[idx], kernel_size=3, padding=1, bias=False),
                 nn.BatchNorm2d(num_filters[idx], eps=1e-3, momentum=0.01),
-                nn.ReLU(),
+                nn.ReLU(inplace=True),
 
                 nn.Conv2d(num_filters[idx], num_filters[idx], kernel_size=3, padding=1, bias=False),
                 nn.BatchNorm2d(num_filters[idx], eps=1e-3, momentum=0.01),
@@ -62,7 +62,7 @@ class ResidualAttentionBEVBackbone(nn.Module):
                 cur_layers.extend([
                     nn.Conv2d(num_filters[idx], num_filters[idx], kernel_size=3, padding=1, bias=False),
                     nn.BatchNorm2d(num_filters[idx], eps=1e-3, momentum=0.01),
-                    nn.ReLU()
+                    nn.ReLU(inplace=True)
                 ])
             
             self.blocks.append(nn.Sequential(*cur_layers))
@@ -78,7 +78,7 @@ class ResidualAttentionBEVBackbone(nn.Module):
                             stride=upsample_strides[idx], bias=False
                         ),
                         nn.BatchNorm2d(num_upsample_filters[idx], eps=1e-3, momentum=0.01),
-                        nn.ReLU()
+                        nn.ReLU(inplace=True)
                     ))
                 else:
                     stride = np.round(1 / stride).astype(np.int)
@@ -89,7 +89,7 @@ class ResidualAttentionBEVBackbone(nn.Module):
                             stride=stride, bias=False
                         ),
                         nn.BatchNorm2d(num_upsample_filters[idx], eps=1e-3, momentum=0.01),
-                        nn.ReLU()
+                        nn.ReLU(inplace=True)
                     ))
 
         c_in = sum(num_upsample_filters)
@@ -97,7 +97,7 @@ class ResidualAttentionBEVBackbone(nn.Module):
             self.deblocks.append(nn.Sequential(
                 nn.ConvTranspose2d(c_in, c_in, upsample_strides[-1], stride=upsample_strides[-1], bias=False),
                 nn.BatchNorm2d(c_in, eps=1e-3, momentum=0.01),
-                nn.ReLU(),
+                nn.ReLU(inplace=True),
             ))
 
         self.num_bev_features = c_in

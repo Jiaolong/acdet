@@ -67,15 +67,15 @@ class ResContextBlock(nn.Module):
         super(ResContextBlock, self).__init__()
         self.conv1 = nn.Conv2d(in_filters, out_filters,
                                kernel_size=(1, 1), stride=1)
-        self.act1 = nn.LeakyReLU()
+        self.act1 = nn.LeakyReLU(inplace=True)
 
         self.conv2 = nn.Conv2d(out_filters, out_filters, (3, 3), padding=1)
-        self.act2 = nn.LeakyReLU()
+        self.act2 = nn.LeakyReLU(inplace=True)
         self.bn1 = nn.BatchNorm2d(out_filters)
 
         self.conv3 = nn.Conv2d(out_filters, out_filters,
                                (3, 3), dilation=2, padding=2)
-        self.act3 = nn.LeakyReLU()
+        self.act3 = nn.LeakyReLU(inplace=True)
         self.bn2 = nn.BatchNorm2d(out_filters)
 
     def forward(self, x):
@@ -99,10 +99,10 @@ class DownsampleBlock(nn.Module):
         super(DownsampleBlock, self).__init__()
         self.conv1 = nn.Conv2d(in_filters, out_filters,
                                kernel_size=(1, 1), stride=1)
-        self.act1 = nn.LeakyReLU()
+        self.act1 = nn.LeakyReLU(inplace=True)
 
         self.conv2 = nn.Conv2d(out_filters, out_filters, (3, 3), stride=2, padding=1)
-        self.act2 = nn.LeakyReLU()
+        self.act2 = nn.LeakyReLU(inplace=True)
         self.bn1 = nn.BatchNorm2d(out_filters)
 
     def forward(self, x):
@@ -148,13 +148,13 @@ class RawBEVEncoder(nn.Module):
                     stride=layer_strides[idx], padding=0, bias=False
                 ),
                 nn.BatchNorm2d(num_filters[idx], eps=1e-3, momentum=0.01),
-                nn.ReLU()
+                nn.ReLU(inplace=True)
             ]
             for k in range(layer_nums[idx]):
                 cur_layers.extend([
                     nn.Conv2d(num_filters[idx], num_filters[idx], kernel_size=3, padding=1, bias=False),
                     nn.BatchNorm2d(num_filters[idx], eps=1e-3, momentum=0.01),
-                    nn.ReLU()
+                    nn.ReLU(inplace=True)
                 ])
             self.blocks.append(nn.Sequential(*cur_layers))
 
@@ -185,7 +185,7 @@ class MaskBlock(nn.Module):
         self.conv1 = nn.Conv2d(input_channels, num_filters, 
                 stride=stride, kernel_size=3, padding=0, bias=False)
         self.bn1 = nn.BatchNorm2d(num_filters, eps=1e-3, momentum=0.01)
-        self.act1 = nn.ReLU()
+        self.act1 = nn.ReLU(inplace=True)
 
         self.conv2 = nn.Conv2d(2, 1, kernel_size=3, padding=1, bias=False)
         self.bn2 = nn.BatchNorm2d(1, eps=1e-3, momentum=0.01)
@@ -238,13 +238,13 @@ class MaskBEVEncoder(nn.Module):
                     stride=layer_strides[idx], padding=0, bias=False
                 ),
                 nn.BatchNorm2d(num_filters[idx], eps=1e-3, momentum=0.01),
-                nn.ReLU()
+                nn.ReLU(inplace=True)
             ]
             for k in range(layer_nums[idx]):
                 cur_layers.extend([
                     nn.Conv2d(num_filters[idx], num_filters[idx], kernel_size=3, padding=1, bias=False),
                     nn.BatchNorm2d(num_filters[idx], eps=1e-3, momentum=0.01),
-                    nn.ReLU()
+                    nn.ReLU(inplace=True)
                 ])
 
             self.blocks.append(nn.Sequential(*cur_layers))

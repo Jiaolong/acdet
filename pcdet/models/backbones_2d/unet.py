@@ -150,12 +150,12 @@ class SALSANEXT(nn.Module):
             # t1 = time.time()
             # mask = (x.sum(dim=1,) > 0).unsqueeze(1)
             mask = mask.unsqueeze(1)
-            coord = x[:, :3, :, :]
+            coord =torch.cat([x[:,:3],x[:,4:5]],dim=1)
             downCntx_coord = torch.cat([coord, x], dim=1)
             x = self.kernel(downCntx_coord, mask)
             if self.append_far:
                 mask_far = mask_far.unsqueeze(1)
-                coord_far = x_far[:, :3, :, :]
+                coord_far =torch.cat([x_far[:,:3],x_far[:,4:5]],dim=1)
                 downCntx_coord_far = torch.cat([coord_far, x_far], dim=1)
                 x_far = self.kernel(downCntx_coord_far, mask_far)
                 x=torch.cat([x,x_far,],dim=1)
@@ -171,12 +171,12 @@ class SALSANEXT(nn.Module):
             # t1 = time.time()
             # mask = (x.sum(dim=1,) > 0).unsqueeze(1)
             mask=mask.unsqueeze(1)
-            coord=x[:, :3, :, :]
+            coord =torch.cat([x[:,:3],x[:,4:5]],dim=1)
             downCntx_coord = torch.cat([coord, downCntx], dim=1)
             downCntx = self.kernel(downCntx_coord, mask)
             if self.append_far:
                 mask_far = mask_far.unsqueeze(1)
-                coord_far = x_far[:, :3, :, :]
+                coord_far =torch.cat([x_far[:,:3],x_far[:,4:5]],dim=1)
                 downCntx_coord_far = torch.cat([coord_far, downCntx_far], dim=1)
                 downCntx_far = self.kernel(downCntx_coord_far, mask_far)
                 downCntx=torch.cat([downCntx,downCntx_far],dim=1)
@@ -313,15 +313,15 @@ class ResContextBlock(nn.Module):
         super(ResContextBlock, self).__init__()
         self.conv1 = nn.Conv2d(in_filters, out_filters,
                                kernel_size=(1, 1), stride=1)
-        self.act1 = nn.LeakyReLU()
+        self.act1 = nn.LeakyReLU(inplace=True)
 
         self.conv2 = nn.Conv2d(out_filters, out_filters, (3, 3), padding=1)
-        self.act2 = nn.LeakyReLU()
+        self.act2 = nn.LeakyReLU(inplace=True)
         self.bn1 = nn.BatchNorm2d(out_filters)
 
         self.conv3 = nn.Conv2d(out_filters, out_filters,
                                (3, 3), dilation=2, padding=2)
-        self.act3 = nn.LeakyReLU()
+        self.act3 = nn.LeakyReLU(inplace=True)
         self.bn2 = nn.BatchNorm2d(out_filters)
 
     def forward(self, x):
@@ -349,25 +349,25 @@ class ResBlock(nn.Module):
         self.drop_out = drop_out
         self.conv1 = nn.Conv2d(in_filters, out_filters,
                                kernel_size=(1, 1), stride=stride)
-        self.act1 = nn.LeakyReLU()
+        self.act1 = nn.LeakyReLU(inplace=True)
 
         self.conv2 = nn.Conv2d(in_filters, out_filters,
                                kernel_size=(3, 3), padding=1)
-        self.act2 = nn.LeakyReLU()
+        self.act2 = nn.LeakyReLU(inplace=True)
         self.bn1 = nn.BatchNorm2d(out_filters)
 
         self.conv3 = nn.Conv2d(out_filters, out_filters,
                                kernel_size=(3, 3), dilation=2, padding=2)
-        self.act3 = nn.LeakyReLU()
+        self.act3 = nn.LeakyReLU(inplace=True)
         self.bn2 = nn.BatchNorm2d(out_filters)
 
         self.conv4 = nn.Conv2d(out_filters, out_filters,
                                kernel_size=(2, 2), dilation=2, padding=1)
-        self.act4 = nn.LeakyReLU()
+        self.act4 = nn.LeakyReLU(inplace=True)
         self.bn3 = nn.BatchNorm2d(out_filters)
 
         self.conv5 = nn.Conv2d(out_filters*3, out_filters, kernel_size=(1, 1))
-        self.act5 = nn.LeakyReLU()
+        self.act5 = nn.LeakyReLU(inplace=True)
         self.bn4 = nn.BatchNorm2d(out_filters)
 
         if pooling:
@@ -432,7 +432,7 @@ class AttentionBlock(nn.Module):
         # after applying Wg to the input, upsample to the size of the skip connection
         g1 = nn.functional.interpolate(
             self.Wg(g), x1.shape[2:], mode='bilinear', align_corners=False)
-        out = self.psi(nn.ReLU()(x1 + g1))
+        out = self.psi(nn.ReLU(inplace=True)(x1 + g1))
         out = nn.Sigmoid()(out)
         return out * x
 
@@ -455,21 +455,21 @@ class UpBlock(nn.Module):
         self.conv1 = nn.Conv2d(in_filters//4 + skip_filters,
                                out_filters, (3, 3), padding=1)
 
-        self.act1 = nn.LeakyReLU()
+        self.act1 = nn.LeakyReLU(inplace=True)
         self.bn1 = nn.BatchNorm2d(out_filters)
 
         self.conv2 = nn.Conv2d(out_filters, out_filters,
                                (3, 3), dilation=2, padding=2)
-        self.act2 = nn.LeakyReLU()
+        self.act2 = nn.LeakyReLU(inplace=True)
         self.bn2 = nn.BatchNorm2d(out_filters)
 
         self.conv3 = nn.Conv2d(out_filters, out_filters,
                                (2, 2), dilation=2, padding=1)
-        self.act3 = nn.LeakyReLU()
+        self.act3 = nn.LeakyReLU(inplace=True)
         self.bn3 = nn.BatchNorm2d(out_filters)
 
         self.conv4 = nn.Conv2d(out_filters*3, out_filters, kernel_size=(1, 1))
-        self.act4 = nn.LeakyReLU()
+        self.act4 = nn.LeakyReLU(inplace=True)
         self.bn4 = nn.BatchNorm2d(out_filters)
 
         self.dropout3 = nn.Dropout2d(p=dropout_rate)

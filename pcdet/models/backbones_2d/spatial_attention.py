@@ -31,7 +31,7 @@ class ConvLayer(nn.Module):
                                  kernel_size=kernel_size, stride=stride, padding=padding)
 
         if self.activation:
-            self.relu = nn.ReLU()
+            self.relu = nn.ReLU(inplace=True)
         else:
             self.relu = None
 

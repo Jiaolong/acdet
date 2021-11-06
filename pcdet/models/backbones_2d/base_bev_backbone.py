@@ -36,13 +36,13 @@ class BaseBEVBackbone(nn.Module):
                     stride=layer_strides[idx], padding=0, bias=False
                 ),
                 nn.BatchNorm2d(num_filters[idx], eps=1e-3, momentum=0.01),
-                nn.ReLU()
+                nn.ReLU(inplace=True)
             ]
             for k in range(layer_nums[idx]):
                 cur_layers.extend([
                     nn.Conv2d(num_filters[idx], num_filters[idx], kernel_size=3, padding=1, bias=False),
                     nn.BatchNorm2d(num_filters[idx], eps=1e-3, momentum=0.01),
-                    nn.ReLU()
+                    nn.ReLU(inplace=True)
                 ])
             self.blocks.append(nn.Sequential(*cur_layers))
             if len(upsample_strides) > 0:
@@ -55,7 +55,7 @@ class BaseBEVBackbone(nn.Module):
                             stride=upsample_strides[idx], bias=False
                         ),
                         nn.BatchNorm2d(num_upsample_filters[idx], eps=1e-3, momentum=0.01),
-                        nn.ReLU()
+                        nn.ReLU(inplace=True)
                     ))
                 else:
                     stride = np.round(1 / stride).astype(np.int)
@@ -66,7 +66,7 @@ class BaseBEVBackbone(nn.Module):
                             stride=stride, bias=False
                         ),
                         nn.BatchNorm2d(num_upsample_filters[idx], eps=1e-3, momentum=0.01),
-                        nn.ReLU()
+                        nn.ReLU(inplace=True)
                     ))
 
         c_in = sum(num_upsample_filters)
@@ -74,7 +74,7 @@ class BaseBEVBackbone(nn.Module):
             self.deblocks.append(nn.Sequential(
                 nn.ConvTranspose2d(c_in, c_in, upsample_strides[-1], stride=upsample_strides[-1], bias=False),
                 nn.BatchNorm2d(c_in, eps=1e-3, momentum=0.01),
-                nn.ReLU(),
+                nn.ReLU(inplace=True),
             ))
 
         self.num_bev_features = c_in
@@ -159,20 +159,20 @@ class BaseBEVBackbone_Scale(nn.Module):
                     stride=layer_strides[idx], padding=0, bias=False
                 ),
                 nn.BatchNorm2d(num_filters[idx], eps=1e-3, momentum=0.01),
-                nn.ReLU()
+                nn.ReLU(inplace=True)
             ]
             for k in range(layer_nums[idx]):
                 cur_layers.extend([
                     nn.Conv2d(num_filters[idx], num_filters[idx], kernel_size=3, padding=1, bias=False),
                     nn.BatchNorm2d(num_filters[idx], eps=1e-3, momentum=0.01),
-                    nn.ReLU()
+                    nn.ReLU(inplace=True)
                 ])
             self.blocks.append(nn.Sequential(*cur_layers))
             
             self.sfmblocks_down.append(nn.Sequential(
                 nn.Conv2d(num_filters[idx], num_filters[idx], kernel_size=3, padding=1, bias=False),
                 nn.BatchNorm2d(num_filters[idx], eps=1e-3, momentum=0.01),
-                nn.ReLU()
+                nn.ReLU(inplace=True)
             ))
            
             if len(upsample_strides) > 0:
@@ -185,7 +185,7 @@ class BaseBEVBackbone_Scale(nn.Module):
                             stride=upsample_strides[idx], bias=False
                         ),
                         nn.BatchNorm2d(num_upsample_filters[idx], eps=1e-3, momentum=0.01),
-                        nn.ReLU()
+                        nn.ReLU(inplace=True)
                     ))
                 else:
                     stride = np.round(1 / stride).astype(np.int)
@@ -196,7 +196,7 @@ class BaseBEVBackbone_Scale(nn.Module):
                             stride=stride, bias=False
                         ),
                         nn.BatchNorm2d(num_upsample_filters[idx], eps=1e-3, momentum=0.01),
-                        nn.ReLU()
+                        nn.ReLU(inplace=True)
                     ))
             if len(num_scale_filters) > 0:
                 self.scale_layers.append(nn.Sequential(
@@ -206,7 +206,7 @@ class BaseBEVBackbone_Scale(nn.Module):
                     stride=layer_strides[idx], padding=0, bias=False
                     ),
                     nn.BatchNorm2d(num_scale_filters[idx], eps=1e-3, momentum=0.01),
-                    nn.ReLU()
+                    nn.ReLU(inplace=True)
                 ))
 
         c_in = sum(num_upsample_filters)
@@ -214,7 +214,7 @@ class BaseBEVBackbone_Scale(nn.Module):
             self.deblocks.append(nn.Sequential(
                 nn.ConvTranspose2d(c_in, c_in, upsample_strides[-1], stride=upsample_strides[-1], bias=False),
                 nn.BatchNorm2d(c_in, eps=1e-3, momentum=0.01),
-                nn.ReLU(),
+                nn.ReLU(inplace=True),
             ))
 
         self.num_bev_features = c_in

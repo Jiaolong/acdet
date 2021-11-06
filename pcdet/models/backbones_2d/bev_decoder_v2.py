@@ -44,7 +44,7 @@ class CrossViewTransformerMaskBEVDecoderV2(BaseBEVDecoder):
                             stride=upsample_strides[idx], bias=False
                         ),
                         nn.BatchNorm2d(num_upsample_filters[idx], eps=1e-3, momentum=0.01),
-                        nn.ReLU()
+                        nn.ReLU(inplace=True)
                     ))
                 else:
                     stride = np.round(1 / stride).astype(np.int)
@@ -56,14 +56,14 @@ class CrossViewTransformerMaskBEVDecoderV2(BaseBEVDecoder):
                             stride=stride, bias=False
                         ),
                         nn.BatchNorm2d(num_upsample_filters[idx], eps=1e-3, momentum=0.01),
-                        nn.ReLU()
+                        nn.ReLU(inplace=True)
                     ))
         c_in = sum(num_upsample_filters)
         if len(upsample_strides) > self.num_levels:
             self.deblocks.append(nn.Sequential(
                 nn.ConvTranspose2d(c_in, c_in, upsample_strides[-1], stride=upsample_strides[-1], bias=False),
                 nn.BatchNorm2d(c_in, eps=1e-3, momentum=0.01),
-                nn.ReLU(),
+                nn.ReLU(inplace=True),
             ))
         
         mask_in_dim = num_filters[-1]
@@ -76,15 +76,15 @@ class CrossViewTransformerMaskBEVDecoderV2(BaseBEVDecoder):
                 stride=upsample_strides[-1], bias=False
             ),
             nn.BatchNorm2d(mask_filters, eps=1e-3, momentum=0.01),
-            nn.ReLU(),
+            nn.ReLU(inplace=True),
 
             # conv blocks
             nn.Conv2d(mask_filters, mask_filters, 3, padding=1, bias=False),
             nn.BatchNorm2d(mask_filters, eps=1e-3, momentum=0.01),
-            nn.ReLU(),
+            nn.ReLU(inplace=True),
             nn.Conv2d(mask_filters, mask_filters, 3, padding=1, bias=False),
             nn.BatchNorm2d(mask_filters, eps=1e-3, momentum=0.01),
-            nn.ReLU(),
+            nn.ReLU(inplace=True),
             nn.Conv2d(mask_filters, 1, 3, padding=1, bias=False),
             nn.Sigmoid()
         )

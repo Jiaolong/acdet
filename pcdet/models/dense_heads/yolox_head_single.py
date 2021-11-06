@@ -54,7 +54,7 @@ class YOLOXHeadSingle(AnchorHeadTemplate):
             stacked_convs.extend([
                 nn.Conv2d(chn, self.feat_channels, kernel_size=3, stride=1, padding=1, bias=False),
                 nn.BatchNorm2d(self.feat_channels, eps=0.001, momentum=0.03),
-                nn.ReLU()
+                nn.ReLU(inplace=True)
                 ])
         return nn.Sequential(*stacked_convs)
 

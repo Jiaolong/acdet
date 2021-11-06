@@ -46,7 +46,7 @@ class BaseBEVDecoder(nn.Module):
                             stride=upsample_strides[idx], bias=False
                         ),
                         nn.BatchNorm2d(num_upsample_filters[idx], eps=1e-3, momentum=0.01),
-                        nn.ReLU()
+                        nn.ReLU(inplace=True)
                     ))
                 else:
                     stride = np.round(1 / stride).astype(np.int)
@@ -57,14 +57,14 @@ class BaseBEVDecoder(nn.Module):
                             stride=stride, bias=False
                         ),
                         nn.BatchNorm2d(num_upsample_filters[idx], eps=1e-3, momentum=0.01),
-                        nn.ReLU()
+                        nn.ReLU(inplace=True)
                     ))
         c_in = sum(num_upsample_filters)
         if len(upsample_strides) > self.num_levels:
             self.deblocks.append(nn.Sequential(
                 nn.ConvTranspose2d(c_in, c_in, upsample_strides[-1], stride=upsample_strides[-1], bias=False),
                 nn.BatchNorm2d(c_in, eps=1e-3, momentum=0.01),
-                nn.ReLU(),
+                nn.ReLU(inplace=True),
             ))
         self.num_bev_features = c_in
 
@@ -130,7 +130,7 @@ class ConcatBEVDecoder(BaseBEVDecoder):
                             stride=upsample_strides[idx], bias=False
                         ),
                         nn.BatchNorm2d(num_upsample_filters[idx], eps=1e-3, momentum=0.01),
-                        nn.ReLU()
+                        nn.ReLU(inplace=True)
                     ))
                 else:
                     stride = np.round(1 / stride).astype(np.int)
@@ -141,14 +141,14 @@ class ConcatBEVDecoder(BaseBEVDecoder):
                             stride=stride, bias=False
                         ),
                         nn.BatchNorm2d(num_upsample_filters[idx], eps=1e-3, momentum=0.01),
-                        nn.ReLU()
+                        nn.ReLU(inplace=True)
                     ))
         c_in = sum(num_upsample_filters)
         if len(upsample_strides) > self.num_levels:
             self.deblocks.append(nn.Sequential(
                 nn.ConvTranspose2d(c_in, c_in, upsample_strides[-1], stride=upsample_strides[-1], bias=False),
                 nn.BatchNorm2d(c_in, eps=1e-3, momentum=0.01),
-                nn.ReLU(),
+                nn.ReLU(inplace=True),
             ))
         self.num_bev_features = c_in
 
@@ -226,7 +226,7 @@ class LateConcatBEVDecoder(nn.Module):
                             stride=upsample_strides[idx], bias=False
                         ),
                         nn.BatchNorm2d(num_upsample_filters[idx], eps=1e-3, momentum=0.01),
-                        nn.ReLU()
+                        nn.ReLU(inplace=True)
                     ))
                     self.deblocks_2.append(nn.Sequential(
                         nn.ConvTranspose2d(
@@ -235,7 +235,7 @@ class LateConcatBEVDecoder(nn.Module):
                             stride=upsample_strides[idx], bias=False
                         ),
                         nn.BatchNorm2d(num_upsample_filters[idx], eps=1e-3, momentum=0.01),
-                        nn.ReLU()
+                        nn.ReLU(inplace=True)
                     ))
 
                 else:
@@ -247,7 +247,7 @@ class LateConcatBEVDecoder(nn.Module):
                             stride=stride, bias=False
                         ),
                         nn.BatchNorm2d(num_upsample_filters[idx], eps=1e-3, momentum=0.01),
-                        nn.ReLU()
+                        nn.ReLU(inplace=True)
                     ))
                     self.deblocks_2.append(nn.Sequential(
                         nn.Conv2d(
@@ -256,7 +256,7 @@ class LateConcatBEVDecoder(nn.Module):
                             stride=stride, bias=False
                         ),
                         nn.BatchNorm2d(num_upsample_filters[idx], eps=1e-3, momentum=0.01),
-                        nn.ReLU()
+                        nn.ReLU(inplace=True)
                     ))
 
         c_in = sum(num_upsample_filters)
@@ -264,12 +264,12 @@ class LateConcatBEVDecoder(nn.Module):
             self.deblocks_1.append(nn.Sequential(
                 nn.ConvTranspose2d(c_in, c_in, upsample_strides[-1], stride=upsample_strides[-1], bias=False),
                 nn.BatchNorm2d(c_in, eps=1e-3, momentum=0.01),
-                nn.ReLU(),
+                nn.ReLU(inplace=True),
             ))
             self.deblocks_2.append(nn.Sequential(
                 nn.ConvTranspose2d(c_in, c_in, upsample_strides[-1], stride=upsample_strides[-1], bias=False),
                 nn.BatchNorm2d(c_in, eps=1e-3, momentum=0.01),
-                nn.ReLU(),
+                nn.ReLU(inplace=True),
             ))
         self.num_bev_features = c_in
         if self.with_transformer:
@@ -357,7 +357,7 @@ class CrossViewTransformerBEVDecoder(BaseBEVDecoder):
                             stride=upsample_strides[idx], bias=False
                         ),
                         nn.BatchNorm2d(num_upsample_filters[idx], eps=1e-3, momentum=0.01),
-                        nn.ReLU()
+                        nn.ReLU(inplace=True)
                     ))
                 else:
                     stride = np.round(1 / stride).astype(np.int)
@@ -369,14 +369,14 @@ class CrossViewTransformerBEVDecoder(BaseBEVDecoder):
                             stride=stride, bias=False
                         ),
                         nn.BatchNorm2d(num_upsample_filters[idx], eps=1e-3, momentum=0.01),
-                        nn.ReLU()
+                        nn.ReLU(inplace=True)
                     ))
         c_in = sum(num_upsample_filters)
         if len(upsample_strides) > self.num_levels:
             self.deblocks.append(nn.Sequential(
                 nn.ConvTranspose2d(c_in, c_in, upsample_strides[-1], stride=upsample_strides[-1], bias=False),
                 nn.BatchNorm2d(c_in, eps=1e-3, momentum=0.01),
-                nn.ReLU(),
+                nn.ReLU(inplace=True),
             ))
         self.num_bev_features = c_in
         
@@ -449,7 +449,7 @@ class CrossViewBlockTransformerBEVDecoder(BaseBEVDecoder):
                             stride=upsample_strides[idx], bias=False
                         ),
                         nn.BatchNorm2d(num_upsample_filters[idx], eps=1e-3, momentum=0.01),
-                        nn.ReLU()
+                        nn.ReLU(inplace=True)
                     ))
                 else:
                     stride = np.round(1 / stride).astype(np.int)
@@ -461,14 +461,14 @@ class CrossViewBlockTransformerBEVDecoder(BaseBEVDecoder):
                             stride=stride, bias=False
                         ),
                         nn.BatchNorm2d(num_upsample_filters[idx], eps=1e-3, momentum=0.01),
-                        nn.ReLU()
+                        nn.ReLU(inplace=True)
                     ))
         c_in = sum(num_upsample_filters)
         if len(upsample_strides) > self.num_levels:
             self.deblocks.append(nn.Sequential(
                 nn.ConvTranspose2d(c_in, c_in, upsample_strides[-1], stride=upsample_strides[-1], bias=False),
                 nn.BatchNorm2d(c_in, eps=1e-3, momentum=0.01),
-                nn.ReLU(),
+                nn.ReLU(inplace=True),
             ))
         self.num_bev_features = c_in
         
@@ -556,7 +556,7 @@ class CrossViewAttentionBEVDecoder(BaseBEVDecoder):
                             stride=upsample_strides[idx], bias=False
                         ),
                         nn.BatchNorm2d(num_upsample_filters[idx], eps=1e-3, momentum=0.01),
-                        nn.ReLU()
+                        nn.ReLU(inplace=True)
                     ))
                 else:
                     stride = np.round(1 / stride).astype(np.int)
@@ -568,14 +568,14 @@ class CrossViewAttentionBEVDecoder(BaseBEVDecoder):
                             stride=stride, bias=False
                         ),
                         nn.BatchNorm2d(num_upsample_filters[idx], eps=1e-3, momentum=0.01),
-                        nn.ReLU()
+                        nn.ReLU(inplace=True)
                     ))
         c_in = sum(num_upsample_filters)
         if len(upsample_strides) > self.num_levels:
             self.deblocks.append(nn.Sequential(
                 nn.ConvTranspose2d(c_in, c_in, upsample_strides[-1], stride=upsample_strides[-1], bias=False),
                 nn.BatchNorm2d(c_in, eps=1e-3, momentum=0.01),
-                nn.ReLU(),
+                nn.ReLU(inplace=True),
             ))
         self.num_bev_features = c_in
 
@@ -640,7 +640,7 @@ class ConcatPillarCtxDecoder(BaseBEVDecoder):
                             stride=upsample_strides[idx], bias=False
                         ),
                         nn.BatchNorm2d(num_upsample_filters[idx], eps=1e-3, momentum=0.01),
-                        nn.ReLU()
+                        nn.ReLU(inplace=True)
                     ))
                 else:
                     stride = np.round(1 / stride).astype(np.int)
@@ -651,14 +651,14 @@ class ConcatPillarCtxDecoder(BaseBEVDecoder):
                             stride=stride, bias=False
                         ),
                         nn.BatchNorm2d(num_upsample_filters[idx], eps=1e-3, momentum=0.01),
-                        nn.ReLU()
+                        nn.ReLU(inplace=True)
                     ))
         c_in = sum(num_upsample_filters)
         if len(upsample_strides) > self.num_levels:
             self.deblocks.append(nn.Sequential(
                 nn.ConvTranspose2d(c_in, c_in, upsample_strides[-1], stride=upsample_strides[-1], bias=False),
                 nn.BatchNorm2d(c_in, eps=1e-3, momentum=0.01),
-                nn.ReLU(),
+                nn.ReLU(inplace=True),
             ))
         self.num_bev_features = c_in
 
@@ -729,7 +729,7 @@ class CrossViewTransformerMaskBEVDecoder(BaseBEVDecoder):
                             stride=upsample_strides[idx], bias=False
                         ),
                         nn.BatchNorm2d(num_upsample_filters[idx], eps=1e-3, momentum=0.01),
-                        nn.ReLU()
+                        nn.ReLU(inplace=True)
                     ))
                 else:
                     stride = np.round(1 / stride).astype(np.int)
@@ -741,23 +741,23 @@ class CrossViewTransformerMaskBEVDecoder(BaseBEVDecoder):
                             stride=stride, bias=False
                         ),
                         nn.BatchNorm2d(num_upsample_filters[idx], eps=1e-3, momentum=0.01),
-                        nn.ReLU()
+                        nn.ReLU(inplace=True)
                     ))
         c_in = sum(num_upsample_filters)
         if len(upsample_strides) > self.num_levels:
             self.deblocks.append(nn.Sequential(
                 nn.ConvTranspose2d(c_in, c_in, upsample_strides[-1], stride=upsample_strides[-1], bias=False),
                 nn.BatchNorm2d(c_in, eps=1e-3, momentum=0.01),
-                nn.ReLU(),
+                nn.ReLU(inplace=True),
             ))
 
         self.binary_cls = nn.Sequential(
             nn.Conv2d(c_in, num_upsample_filters[0], 3, padding=1, bias=False),
             nn.BatchNorm2d(num_upsample_filters[0], eps=1e-3, momentum=0.01),
-            nn.ReLU(),
+            nn.ReLU(inplace=True),
             nn.Conv2d(num_upsample_filters[0], num_upsample_filters[0], 3, padding=1, bias=False),
             nn.BatchNorm2d(num_upsample_filters[0], eps=1e-3, momentum=0.01),
-            nn.ReLU(),
+            nn.ReLU(inplace=True),
             nn.Conv2d(num_upsample_filters[0], 1, 3, padding=1, bias=False),
             nn.Sigmoid()
         )
@@ -882,7 +882,7 @@ class CrossViewMaskFuseBEVDecoder(BaseBEVDecoder):
                             stride=upsample_strides[idx], bias=False
                         ),
                         nn.BatchNorm2d(num_upsample_filters[idx], eps=1e-3, momentum=0.01),
-                        nn.ReLU()
+                        nn.ReLU(inplace=True)
                     ))
                     self.deblocks_bev.append(nn.Sequential(
                         nn.ConvTranspose2d(
@@ -892,7 +892,7 @@ class CrossViewMaskFuseBEVDecoder(BaseBEVDecoder):
                             stride=upsample_strides[idx], bias=False
                         ),
                         nn.BatchNorm2d(num_upsample_filters[idx], eps=1e-3, momentum=0.01),
-                        nn.ReLU()
+                        nn.ReLU(inplace=True)
                     ))
                 else:
                     stride = np.round(1 / stride).astype(np.int)
@@ -904,7 +904,7 @@ class CrossViewMaskFuseBEVDecoder(BaseBEVDecoder):
                             stride=stride, bias=False
                         ),
                         nn.BatchNorm2d(num_upsample_filters[idx], eps=1e-3, momentum=0.01),
-                        nn.ReLU()
+                        nn.ReLU(inplace=True)
                     ))
                     self.deblocks_bev.append(nn.Sequential(
                         nn.Conv2d(
@@ -914,7 +914,7 @@ class CrossViewMaskFuseBEVDecoder(BaseBEVDecoder):
                             stride=stride, bias=False
                         ),
                         nn.BatchNorm2d(num_upsample_filters[idx], eps=1e-3, momentum=0.01),
-                        nn.ReLU()
+                        nn.ReLU(inplace=True)
                     ))
 
         c_in = sum(num_upsample_filters)
@@ -922,31 +922,31 @@ class CrossViewMaskFuseBEVDecoder(BaseBEVDecoder):
             self.deblocks_cyv.append(nn.Sequential(
                 nn.ConvTranspose2d(c_in, c_in, upsample_strides[-1], stride=upsample_strides[-1], bias=False),
                 nn.BatchNorm2d(c_in, eps=1e-3, momentum=0.01),
-                nn.ReLU(),
+                nn.ReLU(inplace=True),
             ))
             self.deblocks_bev.append(nn.Sequential(
                 nn.ConvTranspose2d(c_in, c_in, upsample_strides[-1], stride=upsample_strides[-1], bias=False),
                 nn.BatchNorm2d(c_in, eps=1e-3, momentum=0.01),
-                nn.ReLU(),
+                nn.ReLU(inplace=True),
             ))
 
         self.binary_cls_bev = nn.Sequential(
             nn.Conv2d(c_in, num_upsample_filters[0], 3, padding=1, bias=False),
             nn.BatchNorm2d(num_upsample_filters[0], eps=1e-3, momentum=0.01),
-            nn.ReLU(),
+            nn.ReLU(inplace=True),
             nn.Conv2d(num_upsample_filters[0], num_upsample_filters[0], 3, padding=1, bias=False),
             nn.BatchNorm2d(num_upsample_filters[0], eps=1e-3, momentum=0.01),
-            nn.ReLU(),
+            nn.ReLU(inplace=True),
             nn.Conv2d(num_upsample_filters[0], 1, 3, padding=1, bias=False),
             nn.Sigmoid()
         )
         self.binary_cls_cyv = nn.Sequential(
             nn.Conv2d(c_in, num_upsample_filters[0], 3, padding=1, bias=False),
             nn.BatchNorm2d(num_upsample_filters[0], eps=1e-3, momentum=0.01),
-            nn.ReLU(),
+            nn.ReLU(inplace=True),
             nn.Conv2d(num_upsample_filters[0], num_upsample_filters[0], 3, padding=1, bias=False),
             nn.BatchNorm2d(num_upsample_filters[0], eps=1e-3, momentum=0.01),
-            nn.ReLU(),
+            nn.ReLU(inplace=True),
             nn.Conv2d(num_upsample_filters[0], 1, 3, padding=1, bias=False),
             nn.Sigmoid()
         )
