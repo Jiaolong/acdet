@@ -73,7 +73,7 @@ MODEL:
         KERNEL_CFG:
             TYPE: "meta_v4"
             META_CHANNELS: 4
-            DIM_EMB: 32 # 16
+            DIM_EMB: 32
             INPUT_CHANNELS: 32
             OUTPUT_CHANNELS: 32
             FEATURE_MAP_SIZE: [48, 512]
@@ -168,7 +168,7 @@ MODEL:
         NMS_CONFIG:
             MULTI_CLASSES_NMS: False
             NMS_TYPE: nms_gpu
-            NMS_THRESH: 0.01
+            NMS_THRESH: 0.1 # 0.01
             NMS_PRE_MAXSIZE: 4096
             NMS_POST_MAXSIZE: 500
 

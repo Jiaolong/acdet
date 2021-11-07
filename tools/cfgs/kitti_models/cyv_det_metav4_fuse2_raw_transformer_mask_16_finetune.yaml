@@ -2,6 +2,15 @@ CLASS_NAMES: ['Car', 'Pedestrian', 'Cyclist']
 
 DATA_CONFIG: 
     _BASE_CONFIG_: cfgs/dataset_configs/kitti_dataset.yaml
+    DATA_SPLIT: {
+        'train': val,
+        'test': val
+    }
+
+    INFO_PATH: {
+        'train': [kitti_infos_val.pkl],
+        'test': [kitti_infos_val.pkl],
+    }
     POINT_CLOUD_RANGE: [0, -39.68, -3, 69.12, 39.68, 1]
     DATA_PROCESSOR:
         - NAME: mask_points_and_boxes_outside_range
@@ -12,6 +21,19 @@ DATA_CONFIG:
             'train': True,
             'test': False
           }
+
+        - NAME: transform_points_to_voxels
+          VOXEL_SIZE: [0.16, 0.16, 4]
+          MAX_POINTS_PER_VOXEL: 32
+          MAX_NUMBER_OF_VOXELS: {
+            'train': 16000,
+            'test': 40000
+          }
+
+        - NAME: project_points
+          TYPE: 'bev'
+          POINT_CLOUD_RANGE: [0, -39.68, -3, 69.12, 39.68, 1]
+          VOXEL_SIZE: [0.16, 0.16, 4]
 
         - NAME: project_points
           TYPE: 'cylindrical'
@@ -35,7 +57,7 @@ DATA_CONFIG:
                  filter_by_difficulty: [-1],
               }
 
-              SAMPLE_GROUPS: ['Car:15','Pedestrian:10', 'Cyclist:10']
+              SAMPLE_GROUPS: ['Car:15','Pedestrian:15', 'Cyclist:15']
               NUM_POINT_FEATURES: 4
               DATABASE_WITH_FAKELIDAR: False
               REMOVE_EXTRA_WIDTH: [0.0, 0.0, 0.0]
@@ -51,7 +73,7 @@ DATA_CONFIG:
               WORLD_SCALE_RANGE: [0.95, 1.05]
 
 MODEL:
-    NAME: RangeDetFusion
+    NAME: RangeDetFusionMask
     
     BACKBONE_FV:
         NAME: SALSANEXT
@@ -60,8 +82,8 @@ MODEL:
         KERNEL_CFG:
             TYPE: "meta_v4"
             META_CHANNELS: 4
+            DIM_EMB: 16
             INPUT_CHANNELS: 32
-            DIM_EMB: 16 # dimension of position embedding
             OUTPUT_CHANNELS: 32
             FEATURE_MAP_SIZE: [48, 512]
             USE_ATTENTION: True
@@ -84,13 +106,27 @@ MODEL:
         NUM_FILTERS: [ 64, 64, 64 ]
         # NUM_FILTERS: [64, 128, 256]
     
+    BEV_ENCODER_2:
+        NAME: BaseBEVEncoder
+        INPUT_CHANNELS: 3
+        FEATURE_NAME: 'points_img_bev' 
+        LAYER_NUMS: [ 3, 5, 5]
+        LAYER_STRIDES: [ 2, 2, 2 ]
+        NUM_FILTERS: [ 64, 64, 64 ]
+        # NUM_FILTERS: [64, 128, 256]
+    
     BEV_DECODER:
-      NAME: BaseBEVDecoder
+      NAME: CrossViewTransformerMaskBEVDecoderV2
       INPUT_CHANNELS: 64
       NUM_FILTERS: [ 64, 64, 64 ]
       UPSAMPLE_STRIDES: [ 1, 2, 4 ]
       NUM_UPSAMPLE_FILTERS: [ 128, 128, 128 ]
-      FEATURE_NAME: 'spatial_features'
+
+      POINT_CLOUD_RANGE: [0, -39.68, -3, 69.12, 39.68, 1]
+      VOXEL_SIZE: [0.16, 0.16, 4]
+      USE_MASK_GT: True
+      USE_TRANSFORMER: True
+      FEATURE_NAMES: ['spatial_features', 'points_img_bev']
 
     DENSE_HEAD:
         NAME: YOLOXHeadSingle
@@ -147,11 +183,11 @@ MODEL:
 
 
 OPTIMIZATION:
-    BATCH_SIZE_PER_GPU: 6
-    NUM_EPOCHS: 80
+    BATCH_SIZE_PER_GPU: 4
+    NUM_EPOCHS: 100
 
     OPTIMIZER: adam_onecycle
-    LR: 0.003
+    LR: 0.001
     WEIGHT_DECAY: 0.01
     MOMENTUM: 0.9
 
