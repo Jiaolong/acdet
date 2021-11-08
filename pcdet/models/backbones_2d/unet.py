@@ -5,7 +5,7 @@ import warnings
 from torch import cuda
 
 from .meta_kernel import MetaKernel,EdgeConvKernel,MetaKernelDualAtt,MetaKernelV2,MetaKernelV3,MetaKernelV4,MetaKernelReduced,MetaKernelV5
-from mmdet.models import BACKBONES
+#from mmdet.models import BACKBONES
 
 
 class UNET(nn.Module):

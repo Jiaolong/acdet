@@ -24,7 +24,7 @@ DATA_CONFIG:
           FOV_RIGHT: -180.0
           Z_MIN: -2.0 # -3.0
           Z_MAX: 4.0 # 7.0
-          NUM_COLS: 1024 # 2560
+          NUM_COLS: 2560
           NUM_ROWS: 64
           VOXEL_SIZE: [0.32, 0.32, 6]
           #VOXEL_SIZE: [0.16, 0.16, 6]
@@ -42,7 +42,7 @@ MODEL:
             INPUT_CHANNELS: 32
             DIM_EMB: 16
             OUTPUT_CHANNELS: 32
-            FEATURE_MAP_SIZE: [64, 1024]
+            FEATURE_MAP_SIZE: [64, 2560]
             USE_ATTENTION: True
             USE_MASK: True
             REDUCED: True
@@ -59,16 +59,16 @@ MODEL:
         NAME: BaseBEVEncoder
         INPUT_CHANNELS: 32
         FEATURE_NAME: 'spatial_features' 
-        LAYER_NUMS: [3, 5]
-        LAYER_STRIDES: [2, 2]
-        NUM_FILTERS: [64, 64]
+        LAYER_NUMS: [3, 5, 5]
+        LAYER_STRIDES: [1, 2, 2]
+        NUM_FILTERS: [64, 64, 64]
         
     BEV_DECODER:
       NAME: BaseBEVDecoder
       INPUT_CHANNELS: 64
-      NUM_FILTERS: [64, 64]
-      UPSAMPLE_STRIDES: [1, 2]
-      NUM_UPSAMPLE_FILTERS: [128, 128]
+      NUM_FILTERS: [64, 64, 64]
+      UPSAMPLE_STRIDES: [1, 2, 4]
+      NUM_UPSAMPLE_FILTERS: [128, 128, 128]
       FEATURE_NAME: 'spatial_features'
 
     DENSE_HEAD:
@@ -80,7 +80,7 @@ MODEL:
         DIR_LIMIT_OFFSET: 0.0
         NUM_DIR_BINS: 2
         
-        INPUT_CHANNELS: 256 # 384
+        INPUT_CHANNELS: 384
 
         ANCHOR_GENERATOR_CONFIG: [
             {
@@ -88,7 +88,7 @@ MODEL:
                 'anchor_rotations': [0],
                 'anchor_bottom_heights': [-1.0],
                 'align_center': False,
-                'feature_map_stride': 2
+                'feature_map_stride': 1
             }
         ]
 
@@ -126,7 +126,7 @@ MODEL:
 
 
 OPTIMIZATION:
-    BATCH_SIZE_PER_GPU: 2
+    BATCH_SIZE_PER_GPU: 1
     NUM_EPOCHS: 30
 
     OPTIMIZER: adam_onecycle
