@@ -11,6 +11,7 @@ class CrossViewTransformerMaskBEVDecoderV2(BaseBEVDecoder):
         super().__init__(model_cfg=model_cfg, input_channels=input_channels)
         self.model_cfg = model_cfg
         self.feature_names = model_cfg.get('FEATURE_NAMES', [])
+        self.multi_level=model_cfg.get('MULTI_LEVEL',False)
         if self.model_cfg.get('NUM_FILTERS', None) is not None:
             num_filters = self.model_cfg.NUM_FILTERS
         else:
@@ -127,7 +128,11 @@ class CrossViewTransformerMaskBEVDecoderV2(BaseBEVDecoder):
                 else:
                     x = x1 + x2 # TODO: concat or other fusion methods
             else:
-                x = x1
+                # x = x1+x2
+                if self.multi_level:
+                    x=x1+x2
+                else:
+                    x=x1
 
             if len(self.deblocks) > 0:
                 ups.append(self.deblocks[i](x))

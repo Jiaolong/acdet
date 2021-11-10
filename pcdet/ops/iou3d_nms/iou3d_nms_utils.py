@@ -115,7 +115,7 @@ def nms_weighted_gpu(boxes, scores, thresh, pre_maxsize=None, post_max_size=None
     
     if boxes.size(0) > 0:
         iou = boxes_iou_bev(boxes[keep], boxes)
-        weights = (iou >= 0.8) * iou * scores[None]
+        weights = (iou >= 0.6) * iou * scores[None]
         boxes[keep, :-1] = torch.mm(weights, boxes[:, :-1]).float() / (weights.sum(1, keepdim=True))
 
     return boxes, keep

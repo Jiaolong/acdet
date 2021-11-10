@@ -441,6 +441,7 @@ class BEVProjector(ProjectionBase):
         # Get depth (z value) of all points for ordering.
         points_depth = points[:, 2]
 
+
         # Get the indices in order of increasing depth.
         indices = np.arange(points_depth.shape[0])
         order = torch.argsort(points_depth, descending=False)
@@ -449,6 +450,7 @@ class BEVProjector(ProjectionBase):
         points = points[order]
         proj_col = proj_col[order].long()
         proj_row = proj_row[order].long()
+        points_range = torch.norm(points[:, :3], p=2, dim=1)
         
         unique_coords, inverse, unique_counts = torch.unique(torch.hstack([proj_row[:,None], proj_col[:,None]]),
                 dim=0, return_inverse=True, return_counts=True)
@@ -464,17 +466,20 @@ class BEVProjector(ProjectionBase):
         proj_row = proj_row[unique_indices]
         intensity = points[unique_indices, 3]
         elevation = points[unique_indices, 2]
-        # points_x=points[unique_indices,0]
-        # points_y=points[unique_indices,1]
-        
+        points_x=points[unique_indices,0]
+        points_y=points[unique_indices,1]
+        points_range=points_range[unique_indices]
         # Project the points.
         points_img = -1.0 * points.new_ones(self.num_rows, self.num_cols, 3)
+        if self.append_xy:
+            points_img = -1.0 * points.new_ones(self.num_rows, self.num_cols, 6)
         points_img[proj_row, proj_col, 0] = intensity # intensity
         points_img[proj_row, proj_col, 1] = elevation # height z
         points_img[proj_row, proj_col, 2] = density # density
-        # points_img[proj_row,proj_col, 0]=points_x
-        # points_img[proj_row,proj_col,1]=points_y
-        # points_img[proj_row,proj_col,2]=elevation
+        if self.append_xy:
+            points_img[proj_row,proj_col, 3]=points_x
+            points_img[proj_row,proj_col,4]=points_y
+            points_img[proj_row,proj_col,5]=points_range
         output["points_img"] = points_img
 
         proj_point_indices = -1.0 * points.new_ones(self.num_rows, self.num_cols)

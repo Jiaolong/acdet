@@ -75,7 +75,7 @@ class GeneragePillarMask(object):
                 for idx in range(current_bbox.shape[0]):
                     radius = max(0.5 * 1.5 * min(current_bbox[idx, [3, 4]] * np.array((w, h))[::-1] / (vis_point_range[3:5] - vis_point_range[:2])),
                                 6.25)
-                    segmask = cv2.drawContours(segmask, [bev_corners[idx].astype(np.int)],
+                    segmask = cv2.drawContours(segmask, [bev_corners[idx].astype(np.int32)],
                                             -1, int(radius+0.5), -1)
             else:
                 for idx in np.unique(current_bbox[:,-1]):
