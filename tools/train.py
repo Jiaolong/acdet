@@ -174,7 +174,8 @@ def main():
         lr_warmup_scheduler=lr_warmup_scheduler,
         ckpt_save_interval=args.ckpt_save_interval,
         max_ckpt_save_num=args.max_ckpt_save_num,
-        merge_all_iters_to_one_epoch=args.merge_all_iters_to_one_epoch
+        merge_all_iters_to_one_epoch=args.merge_all_iters_to_one_epoch,
+        stop_aug_epoch=cfg.STOP_AUG_EPOCHS
     )
 
     logger.info('**********************End training %s/%s(%s)**********************\n\n\n'
