@@ -2,7 +2,7 @@ import argparse
 import glob
 from pathlib import Path
 
-# import mayavi.mlab as mlab
+import mayavi.mlab as mlab
 import numpy as np
 import torch
 
@@ -78,23 +78,24 @@ def main():
     class_names=['Car', 'Pedestrian', 'Cyclist','Van','Person_sitting','Truck','DontCare','Misc']
     for label_file in label_files:
         frame_id=Path(label_file).stem
+        print("current frame is ",frame_id)
         points_file=Path(args.data_dir)/(frame_id+".bin")
         calib_file=Path(args.calib_dir)/(frame_id+".txt")
         points=np.fromfile(str(points_file), dtype=np.float32).reshape(-1, 4)
         objects_cam=object3d_kitti.get_objects_from_label(label_file)
         gt_boxes_camera=np.zeros((len(objects_cam),8))
         calib=calibration_kitti.Calibration(calib_file)
-
-        gt_boxes_camera[:,3:6] = np.array([[obj.l, obj.h, obj.w] for obj in objects_cam])  # lhw(camera) format
-        gt_boxes_camera[:,:3] = np.concatenate([obj.loc.reshape(1, 3) for obj in objects_cam], axis=0)
-        gt_boxes_camera[:,6] = np.array([obj.ry for obj in objects_cam])
-        gt_boxes_camera[:,7]=np.array([obj.score for obj in objects_cam ])
-        gt_names=np.array([obj.cls_type for obj in objects_cam])
-        gt_classes = np.array([class_names.index(n) + 1 for n in gt_names], dtype=np.int32)
-        gt_boxes_lidar = box_utils.boxes3d_kitti_camera_to_lidar(gt_boxes_camera, calib).astype(np.float32)
-        # V.draw_scenes(points=points,ref_scores=gt_boxes_camera[:,7], ref_boxes=gt_boxes_lidar,ref_labels=gt_classes)
-        show_lidar_with_boxes(points=points,boxes3d=gt_boxes_lidar)
-        # mlab.show(stop=True)
+        if len(objects_cam)>0:
+            gt_boxes_camera[:,3:6] = np.array([[obj.l, obj.h, obj.w] for obj in objects_cam])  # lhw(camera) format
+            gt_boxes_camera[:,:3] = np.concatenate([obj.loc.reshape(1, 3) for obj in objects_cam], axis=0)
+            gt_boxes_camera[:,6] = np.array([obj.ry for obj in objects_cam])
+            gt_boxes_camera[:,7]=np.array([obj.score for obj in objects_cam ])
+            gt_names=np.array([obj.cls_type for obj in objects_cam])
+            gt_classes = np.array([class_names.index(n) + 1 for n in gt_names], dtype=np.int32)
+            gt_boxes_lidar = box_utils.boxes3d_kitti_camera_to_lidar(gt_boxes_camera, calib).astype(np.float32)
+            V.draw_scenes(points=points,ref_scores=gt_boxes_camera[:,7], ref_boxes=gt_boxes_lidar,ref_labels=gt_classes)
+            # show_lidar_with_boxes(points=points,boxes3d=gt_boxes_lidar)
+            mlab.show(stop=True)
 
     logger.info('Demo done.')
 

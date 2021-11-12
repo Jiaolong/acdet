@@ -1,4 +1,4 @@
-import mmcv
+# import mmcv
 import torch.nn as nn
 
 def gaussian_focal_loss(pred, gaussian_target, weight=None, alpha=2.0, gamma=4.0,reduction='mean',

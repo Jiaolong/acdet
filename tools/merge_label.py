@@ -39,11 +39,11 @@ def main():
             lines_ped = f.readlines()
         lines_car.extend(lines_ped)
         logger.info("merge {} successful".format(frame_id + " ped"))
-        assert cyc_label.exists(), "cyc label {} not exist".format(str(cyc_label))
-        with open(cyc_label,'r') as f:
-            lines_cyc=f.readlines()
-        lines_car.extend(lines_cyc)
-        logger.info("merge {} successful".format(frame_id + " cyc"))
+        # assert cyc_label.exists(), "cyc label {} not exist".format(str(cyc_label))
+        # with open(cyc_label,'r') as f:
+        #     lines_cyc=f.readlines()
+        # lines_car.extend(lines_cyc)
+        # logger.info("merge {} successful".format(frame_id + " cyc"))
         with open(merge_label, 'w') as f:
             f.writelines(lines_car)
         logger.info("merge {} successful".format(frame_id))

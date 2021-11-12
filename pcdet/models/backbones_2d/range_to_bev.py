@@ -44,17 +44,6 @@ class RangeToBEV(nn.Module):
         else:
             self.bev_projector_range = BEVProjector(project_cfg)
 
-        # if self.fuse_complete_points:
-        #     complete_channel = self.model_cfg.get('COMPLETE_CHANNEL', 32)
-        #     self.complete_net = nn.Sequential(nn.Linear(4, complete_channel, bias=False),
-        #                                       nn.BatchNorm1d(complete_channel),nn.ReLU(inplace=True))
-        #     if self.use_voxelization:
-        #         self.complete_pillar_scatter = PointPillarScatter(pillar_scatter_cfg, self.grid_size)
-        #         self.complete_scatter = DynamicScatter(project_cfg['POINT_CLOUD_RANGE'], project_cfg['VOXEL_SIZE'],False)
-        #         self.complete_dynamic_voxelization = DynamicVoxelization(self.point_cloud_range, self.voxel_size, False)
-        #     else:
-        #         self.bev_projector_complete = BEVProjector(project_cfg)
-
         self.with_pooling = self.model_cfg.get('WITH_POOLING', False)
         if self.with_pooling:
             self.pool = nn.AvgPool2d(kernel_size=(3, 3), stride=2, padding=1)
