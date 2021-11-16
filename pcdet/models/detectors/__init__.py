@@ -7,7 +7,6 @@ from .second_net import SECONDNet
 from .second_net_iou import SECONDNetIoU
 from .caddn import CaDDN
 from .voxel_rcnn import VoxelRCNN
-from .range_det import RangeDet
 from .range_det_fusion_mask import RangeDetFusionMask
 
 __all__ = {
@@ -16,7 +15,6 @@ __all__ = {
     'PartA2Net': PartA2Net,
     'PVRCNN': PVRCNN,
     'PointPillar': PointPillar,
-    'RangeDet': RangeDet,
     'RangeDetFusionMask': RangeDetFusionMask,
     'PointRCNN': PointRCNN,
     'SECONDNetIoU': SECONDNetIoU,
