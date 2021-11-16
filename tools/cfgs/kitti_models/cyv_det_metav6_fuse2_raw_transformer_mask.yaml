@@ -92,7 +92,6 @@ MODEL:
         LAYER_NUMS: [ 3, 5, 5]
         LAYER_STRIDES: [ 2, 2, 2 ]
         NUM_FILTERS: [ 64, 64, 64 ]
-        # NUM_FILTERS: [64, 128, 256]
     
     BEV_ENCODER_2:
         NAME: BaseBEVEncoder
@@ -101,7 +100,6 @@ MODEL:
         LAYER_NUMS: [ 3, 5, 5]
         LAYER_STRIDES: [ 2, 2, 2 ]
         NUM_FILTERS: [ 64, 64, 64 ]
-        # NUM_FILTERS: [64, 128, 256]
     
     BEV_DECODER:
       NAME: CrossViewTransformerMaskBEVDecoderV2

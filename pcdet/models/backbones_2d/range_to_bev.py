@@ -4,9 +4,6 @@ from torch import nn
 import torch.nn.functional as F
 from pcdet.datasets.processor.projection import BEVProjector
 from pcdet.models.backbones_2d.meta_kernel import EdgeConvKernel, MetaKernel
-from pcdet.ops.voxel import Voxelization,DynamicScatter,DynamicVoxelization
-from pcdet.models.backbones_2d.map_to_bev import PointPillarScatter
-from easydict import EasyDict
 from ...ops.pointnet2.pointnet2_batch import pointnet2_utils
 class RangeToBEV(nn.Module):
     """Convert range/cylinder view projected features to BEV features.
@@ -21,28 +18,11 @@ class RangeToBEV(nn.Module):
         super().__init__()
         self.model_cfg = model_cfg
         project_cfg = self.model_cfg.PROJECT_CFG
-        self.use_voxelization=model_cfg.get('VOXELIZATION',False)
         self.fuse_complete_points = self.model_cfg.get('FUSE_COMPLETE_POINTS', False)
         self.with_raw_features = False
         self.voxel_size = torch.tensor(project_cfg['VOXEL_SIZE'], dtype=torch.float).cuda().reshape(-1, 3)
         self.point_cloud_range = torch.tensor(project_cfg['POINT_CLOUD_RANGE'], dtype=torch.float).cuda().reshape(-1, 6)
-
-
-        if self.use_voxelization:
-            self.voxel_layer = Voxelization(voxel_size=project_cfg['VOXEL_SIZE'],
-                                            point_cloud_range=project_cfg['POINT_CLOUD_RANGE'],
-                                            max_num_points=-1,
-                                            max_voxels=-1, )
-            point_cloud_range = np.array(project_cfg['POINT_CLOUD_RANGE'])
-            voxel_size = np.array(project_cfg['VOXEL_SIZE'])
-            self.grid_size = (point_cloud_range[3:6] - point_cloud_range[0:3]) / voxel_size
-            self.grid_size = np.round(self.grid_size).astype(np.int64)
-            pillar_scatter_cfg = EasyDict({'NUM_BEV_FEATURES': 32})
-            self.range_pillar_scatter = PointPillarScatter(pillar_scatter_cfg, self.grid_size)
-            self.range_scatter = DynamicScatter(project_cfg['POINT_CLOUD_RANGE'], project_cfg['VOXEL_SIZE'], True)
-            self.range_dynamic_voxelization = DynamicVoxelization(self.point_cloud_range, self.voxel_size, True)
-        else:
-            self.bev_projector_range = BEVProjector(project_cfg)
+        self.bev_projector_range = BEVProjector(project_cfg)
 
         self.with_pooling = self.model_cfg.get('WITH_POOLING', False)
         if self.with_pooling:
@@ -60,10 +40,7 @@ class RangeToBEV(nn.Module):
 
 
     def forward(self,data_dict):
-        if self.use_voxelization:
-            return  self.forward_v2(data_dict)
-        else:
-            return  self.forward_v1(data_dict)
+        return  self.forward_v1(data_dict)
 
     def forward_v1(self, data_dict):
         """Foraward function to projected features.
@@ -121,66 +98,6 @@ class RangeToBEV(nn.Module):
             bev_features = self.bev_projector_range.get_projected_features(points, features, self.with_raw_features)  # C + 4, H2, W2
             bev_features_batch.append(bev_features)
         bev_features_batch = torch.stack(bev_features_batch,dim=0)  # B, C + 4, H2, W2
-
-        if self.with_pooling:
-            bev_features_batch = self.pool(bev_features_batch)
-
-        if self.use_kernel:
-            assert self.with_raw_features
-            mask = (bev_features_batch.sum(dim=1,) != 0).unsqueeze(1)
-            x = torch.cat([bev_features_batch[:, :3],
-                           bev_features_batch[:, 4:]], dim=1)
-            bev_features_batch = self.kernel(x, mask)
-
-        data_dict['spatial_features'] = bev_features_batch
-        return data_dict
-
-
-    def forward_v2(self, data_dict):
-        """Foraward function to projected features.
-
-        Args:
-            x (tensor): range/cylinder view projected features (B, C, H, W)
-            points_img (tensor): range/cylinder view projected points (B, 4, H, W)
-            proj_masks (tensor): range/cylinder view projection mask (B, H, W)
-        Returns:
-            bev_features_batch (tensor): BEV projected features (B, C, H2, W2)
-        """
-
-        x = data_dict['fv_features']
-        points_img = data_dict['points_img']
-        proj_masks = data_dict['proj_masks']
-        batch_complete_points = data_dict['points']
-        batch_size, C, H, W = x.shape
-
-        x = x.permute(0, 2, 3, 1).contiguous()  # B, H, W, C
-        features_batch = x.view(batch_size, H * W, C)  # B, H * W, C
-        points_batch = points_img[:, :3].permute(0, 2, 3, 1).contiguous()  # B, H, W, 3
-        points_batch = points_batch.view(batch_size, H * W, 3)  # B, H * W, 3
-        proj_masks = proj_masks.view(batch_size,H*W)
-
-        range_features_batch = []
-        range_points_batch=[]
-        for k in range(batch_size):
-            points = points_batch[k]  # H * W, 4
-            features = features_batch[k]  # H * W, C
-            mask = proj_masks[k]  # H * W
-            points = points[mask > 0, :]
-            points = F.pad(points, (1, 0), mode='constant', value=k)
-            range_points_batch.append(points)
-            features = features[mask > 0, :]
-            range_features_batch.append(features)
-        range_points_batch=torch.cat(range_points_batch,dim=0)
-        range_features_batch=torch.cat(range_features_batch,dim=0)
-        voxel_feature_range,voxel_coord_range=self.range_dynamic_voxelization(range_points_batch,range_features_batch)
-        range_scatter_input={'pillar_features':voxel_feature_range,'voxel_coords':voxel_coord_range}
-        bev_features_batch=self.range_pillar_scatter(range_scatter_input)['spatial_features']
-        if self.fuse_complete_points:
-            batch_complete_features = self.complete_net(batch_complete_points[:, 1:5])
-            voxel_feature_complete, voxel_coord_complete = self.complete_dynamic_voxelization(batch_complete_points[:, 0:4],batch_complete_features)
-            complete_scatter_input = {'pillar_features': voxel_feature_complete, 'voxel_coords': voxel_coord_complete}
-            complete_feature_batch=self.complete_pillar_scatter(complete_scatter_input)['spatial_features']
-            bev_features_batch=torch.cat([bev_features_batch,complete_feature_batch],dim=1)
 
         if self.with_pooling:
             bev_features_batch = self.pool(bev_features_batch)
