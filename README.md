@@ -7,7 +7,7 @@ This code is based on [OpenPCDet](https://github.com/open-mmlab/OpenPCDet). Plea
 
 ## Models
 
-Pre-trained models can be downloaded from [link]()
+Pre-trained models can be downloaded from [link](https://drive.google.com/drive/folders/1eVjeOXTxn_ymEj8-Va5WMhsq19s2jjiJ?usp=sharing)
 
 ## Training & Testing
 
