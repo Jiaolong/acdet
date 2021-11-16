@@ -1,5 +1,3 @@
-from ..backbones_2d import map_to_bev
-from ..backbones_3d import vfe, cfe
 from .. import backbones_2d, dense_heads, roi_heads
 from .detector3d_template import Detector3DTemplate
 
@@ -11,15 +9,6 @@ class RangeDetFusionMask(Detector3DTemplate):
         self.build_networks()
 
     def forward(self, batch_dict):
-        if self.vfe:
-            batch_dict = self.vfe(batch_dict)
-
-        if self.map_to_bev:
-            batch_dict = self.map_to_bev(batch_dict)
-       
-        if self.cfe:
-            batch_dict = self.cfe(batch_dict)
-
         batch_dict = self.backbone_fv(batch_dict)
         batch_dict = self.range_to_bev(batch_dict)
 
@@ -53,12 +42,6 @@ class RangeDetFusionMask(Detector3DTemplate):
             'point_cloud_range': self.dataset.point_cloud_range,
             'voxel_size': self.dataset.voxel_size
         }
-        
-        self.vfe, model_info_dict = self.build_vfe(model_info_dict)
-        self.map_to_bev, model_info_dict = self.build_map_to_bev_module(model_info_dict)
-       
-        self.cfe, model_info_dict = self.build_cfe(model_info_dict)
-
         self.backbone_fv, model_info_dict = self.build_backbone_fv(model_info_dict=model_info_dict)
         self.range_to_bev, model_info_dict = self.build_range_to_bev(model_info_dict=model_info_dict)
 
@@ -67,47 +50,6 @@ class RangeDetFusionMask(Detector3DTemplate):
         self.bev_decoder, model_info_dict = self.build_bev_decoder(model_info_dict=model_info_dict)
 
         self.dense_head, model_info_dict = self.build_dense_head(model_info_dict=model_info_dict)
-    
-    def build_cfe(self, model_info_dict):
-        if self.model_cfg.get('CFE', None) is None:
-            return None, model_info_dict
-
-        cfe_module = cfe.__all__[self.model_cfg.CFE.NAME](
-            model_cfg=self.model_cfg.CFE,
-            grid_size=model_info_dict['grid_size'],
-            voxel_size=model_info_dict['voxel_size'],
-            point_cloud_range=model_info_dict['point_cloud_range']
-        )
-        model_info_dict['module_list'].append(cfe_module)
-        return cfe_module, model_info_dict
-
-    def build_vfe(self, model_info_dict):
-        if self.model_cfg.get('VFE', None) is None:
-            return None, model_info_dict
-
-        vfe_module = vfe.__all__[self.model_cfg.VFE.NAME](
-            model_cfg=self.model_cfg.VFE,
-            num_point_features=model_info_dict['num_rawpoint_features'],
-            point_cloud_range=model_info_dict['point_cloud_range'],
-            voxel_size=model_info_dict['voxel_size'],
-            grid_size=model_info_dict['grid_size'],
-            depth_downsample_factor=model_info_dict['depth_downsample_factor']
-        )
-        model_info_dict['num_point_features'] = vfe_module.get_output_feature_dim()
-        model_info_dict['module_list'].append(vfe_module)
-        return vfe_module, model_info_dict
-    
-    def build_map_to_bev_module(self, model_info_dict):
-        if self.model_cfg.get('MAP_TO_BEV', None) is None:
-            return None, model_info_dict
-
-        map_to_bev_module = map_to_bev.__all__[self.model_cfg.MAP_TO_BEV.NAME](
-            model_cfg=self.model_cfg.MAP_TO_BEV,
-            grid_size=model_info_dict['grid_size']
-        )
-        model_info_dict['module_list'].append(map_to_bev_module)
-        model_info_dict['num_bev_features'] = map_to_bev_module.num_bev_features
-        return map_to_bev_module, model_info_dict
 
     def build_backbone_fv(self, model_info_dict):
         if self.model_cfg.get('BACKBONE_FV', None) is None:
