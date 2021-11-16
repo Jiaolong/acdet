@@ -83,7 +83,6 @@ class YOLOXHeadSingle(AnchorHeadTemplate):
     def build_losses(self, losses_cfg):
         self.add_module(
                 'cls_loss_func',
-                #loss_utils.SigmoidFocalClassificationLoss(alpha=0.25, gamma=2.0)
                 loss_utils.WeightedCrossEntropyLoss(use_sigmoid=True)
                 )
         self.add_module(
