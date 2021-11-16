@@ -75,9 +75,6 @@ class SALSANEXT(nn.Module):
             mask_far=data_dict['proj_masks_far']
 
         if self.use_kernel and self.kernel_layer_index == 0:
-            # torch.cuda.synchronize()
-            # t1 = time.time()
-            # mask = (x.sum(dim=1,) > 0).unsqueeze(1)
             mask = mask.unsqueeze(1)
             coord =torch.cat([x[:,:3],x[:,4:5]],dim=1)
             downCntx_coord = torch.cat([coord, x], dim=1)
@@ -88,17 +85,12 @@ class SALSANEXT(nn.Module):
                 downCntx_coord_far = torch.cat([coord_far, x_far], dim=1)
                 x_far = self.kernel(downCntx_coord_far, mask_far)
                 x=torch.cat([x,x_far,],dim=1)
-            # torch.cuda.synchronize()
-            # print("meta kernel time is ", time.time() - t1)
 
         downCntx = self.downCntx(x)  # N, 32, H, W
         if self.append_far:
             downCntx_far=self.downCntx(x_far)
 
         if self.use_kernel and self.kernel_layer_index == 1:
-            # torch.cuda.synchronize()
-            # t1 = time.time()
-            # mask = (x.sum(dim=1,) > 0).unsqueeze(1)
             mask=mask.unsqueeze(1)
             coord =torch.cat([x[:,:3],x[:,4:5]],dim=1)
             downCntx_coord = torch.cat([coord, downCntx], dim=1)
@@ -109,36 +101,21 @@ class SALSANEXT(nn.Module):
                 downCntx_coord_far = torch.cat([coord_far, downCntx_far], dim=1)
                 downCntx_far = self.kernel(downCntx_coord_far, mask_far)
                 downCntx=torch.cat([downCntx,downCntx_far],dim=1)
-            # torch.cuda.synchronize()
-            # print("meta kernel time is ", time.time() - t1)
 
         downCntx = self.downCntx2(downCntx)  # N, 32, H, W
         downCntx = self.downCntx3(downCntx)  # N, 32, H, W
 
         down0c, down0b = self.resBlock1(downCntx)
-        # down0c.shape: N, 64, H/2, W/2
-        # down0b.shape: N, 32, H, W
         down1c, down1b = self.resBlock2(down0c)
-        # down1c.shape: N, 128, H/4, W/4
-        # down1b.shape: N, 128, H/2, W/2
 
         down2c, down2b = self.resBlock3(down1c)
-        # down2c.shape: N, 256, H/8, W/8
-        # down2b.shape: N, 256, H/4, W/4
         down3c, down3b = self.resBlock4(down2c)
-        # down3c.shape: N, 256, H/16, W/16
-        # down3b.shape: N, 256, H/8, W/8
         down5c = self.resBlock5(down3c)
-        # down5c.shape: N, 256, H/16, W/16
 
         up4e = self.upBlock1(down5c, down3b)
-        # up4e: N, 128, H/8, W/8
         up3e = self.upBlock2(up4e, down2b)
-        # up3e: N, 128, H/4, W/4
         up2e = self.upBlock3(up3e, down1b)
-        # up2e: N, 64, H/2, W/2
         up1e = self.upBlock4(up2e, down0b)
-        # up1e: N, 32, H, W
         
         if self.use_kernel and self.kernel_layer_index == -1:
             mask=mask.unsqueeze(1)

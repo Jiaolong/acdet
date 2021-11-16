@@ -65,8 +65,6 @@ class MetaKernel(nn.Module):
                 (batch_size, H * W, mask.size(1), -1))  # B*HW*1*9
             m_unfold = m_unfold.transpose(2, 3).contiguous()  # B*HW*9*1
 
-        # x_pn_range = torch.norm(x_pn, p=2, dim=-1).unsqueeze(-1)
-        # x_pn = torch.cat((x_pn, x_pn_range), dim=-1)
         x_p0 = x_pn[:, :, 4:5, :]  # B*HW*1*4
         pn_p0 = x_pn-x_p0  # B*HW*9*4
         weights = self.weight_mlp1(pn_p0)  # B*HW*9*C'
@@ -282,12 +280,6 @@ class EdgeConvKernel(nn.Module):
             (batch_size, H * W, mask.size(1), -1))  # B*HW*1*9
         m_unfold = m_unfold.transpose(2, 3).contiguous()  # B*HW*9*1
 
-        # mask_unfold = m_unfold[:, :, 4, 0].bool()  # B*HW
-        # m_unfold = m_unfold[mask_unfold]  # N*9*1
-        # features_unfold = features_unfold[mask_unfold]  # N*9*C'
-        # features_x0_unfold = features_x0_unfold[mask_unfold]  # N*9*C'
-        # x_pn = x_pn[mask_unfold]  # N*9*3
-
         x_pn_azimuth = torch.atan2(
             x_pn[..., 1], x_pn[..., 0]).unsqueeze(-1)  # B*HW*9*1
         x_p0_azimuth = x_pn_azimuth[:,:, 4:5]  #  B*HW*1*1
@@ -313,31 +305,21 @@ class EdgeConvKernel(nn.Module):
         pn_p0_reduce=pn_p0[m_unfold[...,0]>0].contiguous() #N*C
 
         features_unfold_reduce = self.mlp1(pn_p0_reduce)  # N*C'
-        # features_unfold_reduce = features_unfold_reduce.transpose(
-        #     1, 2).contiguous()  # N*C'*9
         features_unfold_reduce = self.bn1(features_unfold_reduce)  # N*C'
         features_unfold_reduce = self.relu1(features_unfold_reduce)  # N*C'
-        # features_unfold_reduce = features_unfold_reduce.transpose(
-        #     1, 2).contiguous()  # N*9*C'
-
         features_unfold = features_unfold_reduce.new_zeros(batch_size, H * W, 9, features_unfold_reduce.shape[-1])
         features_unfold[m_unfold[...,0] > 0] = features_unfold_reduce  #B*HW*9*C
-        # if mask is not None and self.use_mask:
-        # features_unfold = features_unfold*m_unfold
 
         features_unfold = features_unfold.transpose(
             2, 3).contiguous().reshape(batch_size,-1,9)  #B*HWC*9
         features_unfold = self.maxpool(features_unfold).squeeze(-1)  # B*HWC
 
         features_unfold=features_unfold.reshape(batch_size,H*W,-1) # B*HW*C'
-        # print("feature shape is ",feature_unfold.shape)
         features_unfold = self.mlp2(features_unfold)
         features_unfold=features_unfold.transpose(1,2).contiguous()
         features_unfold = self.bn2(features_unfold)
         features_unfold = self.relu2(features_unfold)
 
-
-        # features = features_unfold.transpose(1, 2).contiguous()
         features = self.fold(features_unfold)  # B*C''*H*W
 
         return features
