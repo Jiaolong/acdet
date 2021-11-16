@@ -51,7 +51,6 @@ class CrossViewTransformerMaskBEVDecoderV2(BaseBEVDecoder):
                     stride = np.round(1 / stride).astype(np.int)
                     self.deblocks.append(nn.Sequential(
                         nn.Conv2d(
-                            # input_channels + num_filters[idx], num_upsample_filters[idx],
                             num_filters[idx], num_upsample_filters[idx],
                             stride,
                             stride=stride, bias=False
@@ -128,7 +127,6 @@ class CrossViewTransformerMaskBEVDecoderV2(BaseBEVDecoder):
                 else:
                     x = x1 + x2 # TODO: concat or other fusion methods
             else:
-                # x = x1+x2
                 if self.multi_level:
                     x=x1+x2
                 else:
@@ -163,7 +161,6 @@ class CrossViewTransformerMaskBEVDecoderV2(BaseBEVDecoder):
         negative_index = target.lt(1).float()
         negative_weights = torch.pow(1 - target, self.beta)
         loss = 0.
-        # prediction = torch.clamp(prediction, 1e-3, .999)
         positive_loss = torch.log(prediction + 1e-6) \
                         * torch.pow(1 - prediction, self.alpha) * positive_index
         negative_loss = torch.log(1 - prediction + 1e-6) \

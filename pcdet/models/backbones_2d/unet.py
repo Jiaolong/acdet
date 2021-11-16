@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import warnings
 from torch import cuda
-from .meta_kernel import MetaKernel,EdgeConvKernel,MetaKernelV2,MetaKernelV3,MetaKernelV4,MetaKernelReduced,MetaKernelV5,MetaKernelV6
+from .meta_kernel import MetaKernel, EdgeConvKernel ,MetaKernelV6
 
 class SALSANEXT(nn.Module):
     """Backbone network for (range/cylinder/bev) projected points.
@@ -41,16 +41,6 @@ class SALSANEXT(nn.Module):
             self.kernel = MetaKernel(kernel_cfg)
         elif self.kernel_type=="edge_conv":
             self.kernel=EdgeConvKernel(kernel_cfg)
-        elif self.kernel_type=="meta_v2":
-            self.kernel=MetaKernelV2(kernel_cfg)
-        elif self.kernel_type=="meta_v3":
-            self.kernel=MetaKernelV3(kernel_cfg)
-        elif self.kernel_type=="meta_v4":
-            self.kernel=MetaKernelV4(kernel_cfg)
-        elif self.kernel_type=="meta_v5":
-            self.kernel=MetaKernelV5(kernel_cfg)
-        elif self.kernel_type=="meta_reduce":
-            self.kernel=MetaKernelReduced(kernel_cfg)
         elif self.kernel_type=="meta_v6":
             self.kernel=MetaKernelV6(kernel_cfg)
 
