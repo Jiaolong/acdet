@@ -13,6 +13,14 @@ DATA_CONFIG:
             'test': False
           }
 
+        - NAME: transform_points_to_voxels
+          VOXEL_SIZE: [0.16, 0.16, 4]
+          MAX_POINTS_PER_VOXEL: 32
+          MAX_NUMBER_OF_VOXELS: {
+            'train': 16000,
+            'test': 40000
+          }
+
         - NAME: project_points
           TYPE: 'bev'
           POINT_CLOUD_RANGE: [0, -39.68, -3, 69.12, 39.68, 1]
@@ -56,21 +64,19 @@ DATA_CONFIG:
               WORLD_SCALE_RANGE: [0.95, 1.05]
 
 MODEL:
-    NAME: RangeDetFusion
+    NAME: RangeDetFusionMask
     
     BACKBONE_FV:
         NAME: SALSANEXT
         INPUT_CHANNELS: 5
         OUTPUT_CHANNELS: 32
         KERNEL_CFG:
-            TYPE: "meta"
+            TYPE: "meta_v6"
             META_CHANNELS: 4
+            DIM_EMB: 32 # 16
             INPUT_CHANNELS: 32
             OUTPUT_CHANNELS: 32
             FEATURE_MAP_SIZE: [48, 512]
-            USE_ATTENTION: True
-            USE_MASK: True
-            REDUCED: True
 
     RANGE_TO_BEV:
         NAME: RangeToBEV
@@ -98,11 +104,16 @@ MODEL:
         # NUM_FILTERS: [64, 128, 256]
     
     BEV_DECODER:
-      NAME: CrossViewTransformerBEVDecoder
+      NAME: CrossViewTransformerMaskBEVDecoderV2
       INPUT_CHANNELS: 64
       NUM_FILTERS: [ 64, 64, 64 ]
       UPSAMPLE_STRIDES: [ 1, 2, 4 ]
       NUM_UPSAMPLE_FILTERS: [ 128, 128, 128 ]
+
+      POINT_CLOUD_RANGE: [0, -39.68, -3, 69.12, 39.68, 1]
+      VOXEL_SIZE: [0.16, 0.16, 4]
+      USE_MASK_GT: True
+      USE_TRANSFORMER: True
       FEATURE_NAMES: ['spatial_features', 'points_img_bev']
 
     DENSE_HEAD:
@@ -153,8 +164,8 @@ MODEL:
 
         NMS_CONFIG:
             MULTI_CLASSES_NMS: False
-            NMS_TYPE: nms_gpu
-            NMS_THRESH: 0.01
+            NMS_TYPE: nms_weighted_gpu
+            NMS_THRESH: 0.1
             NMS_PRE_MAXSIZE: 4096
             NMS_POST_MAXSIZE: 500
 
