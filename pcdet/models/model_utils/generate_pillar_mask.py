@@ -65,7 +65,6 @@ class GeneragePillarMask(object):
                 current_bbox = boxes[i].detach().cpu().numpy()
             bev_corners = center_to_corner_box2d(
                 current_bbox[:, [0, 1]], current_bbox[:, [3, 4]], current_bbox[:, 6])
-            # box_corner = boxes_to_corners_3d(current_bbox)[:, :4, :2]
             bev_corners -= vis_point_range[:2]
             bev_corners *= np.array(
                 (w, h))[::-1] / (vis_point_range[3:5] - vis_point_range[:2])
@@ -83,12 +82,6 @@ class GeneragePillarMask(object):
                                             -1, int(idx), -1)
 
             segmask_maps[i] = segmask[:, :, 0]
-            # segmask = cv2.drawContours(segmask, bev_corners.astype(np.int), -1, 255, -1)
-            # segmask = cv2.resize(segmask, (int(segmask.shape[1]/scale), int(segmask.shape[0]/scale)), interpolation=cv2.INTER_NEAREST)
-            # segmask_maps[i] = segmask[:, :, 0] / 255.
-        # cv2.imwrite("/home/zhangxiao/test_2.png", segmask_maps[0]*255)
-        # bev_map = kitti_vis(points[points[:, 0] == 0][:, 1:].contiguous().data.cpu().numpy(), vis_voxel_size=vis_voxel_size,
-        #                     vis_point_range=vis_point_range, boxes=boxes[0].detach().cpu().numpy())
         return segmask_maps
 
     def generate(self, masks, points, coors, vis_voxel_size, vis_point_range, gt_bboxes_3d):
@@ -97,9 +90,6 @@ class GeneragePillarMask(object):
         segmask_maps = self.generate_mask(points, vis_voxel_size=vis_voxel_size,
                                 vis_point_range=vis_point_range,
                                 boxes=gt_bboxes_3d, scale=scale, use_dym_ratio=use_dym_ratio)
-        # radius = 3
-        # diameter = 2 * radius + 1
-        # gaussian = self.gaussian_2d((diameter, diameter), sigma=diameter/6)
         heatmap = generate_gaussion_heatmap_array(np.array(masks.size()),
                                                 coors.cpu().numpy(),
                                                 segmask_maps, scale, use_dym_ratio=use_dym_ratio)
@@ -128,7 +118,6 @@ class GeneragePillarMask(object):
         r3  = (b3 + sq3) / 2
         return min(r1, r2, r3)
 
-# @numba.jit(nopython=True)
 def generate_gaussion_heatmap_array(heatmap_size, coors, segmask_maps, scale=2, use_dym_ratio=False):
     """generate gaussiin heatmap
 
@@ -159,8 +148,6 @@ def generate_gaussion_heatmap_array(heatmap_size, coors, segmask_maps, scale=2, 
             radius = label_radius[label_idx]
             gaussian = radius_gaussion[radius]
         draw_heatmap_gaussian_array(heatmap[batch_idx], center, radius, gaussian)
-        # heatmap[batch_idx, center[1], center[0]] = 1.
-    # cv2.imwrite("/home/zhangxiao/test_2.png", (heatmap[1] * 255).astype(np.uint8))
     return heatmap
 
 @numba.jit(nopython=True)

@@ -19,15 +19,6 @@ def kitti_vis(points, vis_voxel_size=None,
     result_bev_map = np.zeros((bev_map.shape[0], bev_map.shape[1]*2, 3))
     result_bev_map[:, :bev_map.shape[1]] = bev_map
     result_bev_map[:, bev_map.shape[1]:] = segmask
-    # if seg_mask is not None:
-    #     draw_seg_mask = seg_mask.permute(1, 2, 0).cpu().data.numpy()
-    #     draw_seg_mask = cv2.cvtColor(draw_seg_mask, cv2.COLOR_GRAY2RGB)
-    #     draw_seg_mask = cv2.resize(draw_seg_mask, (draw_seg_mask.shape[1]*2, draw_seg_mask.shape[0]*2),
-    #                                interpolation=cv2.INTER_NEAREST)
-    #     result_bev_map[:, bev_map.shape[1]:] = draw_seg_mask * 255.
-        # bev_map = cv2.addWeighted(bev_map, 0.7, draw_seg_mask, 0.3, 0)
-        # bev_map = bev_map * 0.9 + draw_seg_mask * 0.1
-    cv2.imwrite("/home/zhangxiao/test.png", result_bev_map)
     return result_bev_map
 
 @numba.jit(nopython=True)
@@ -114,7 +105,6 @@ def points_to_bev(points,
     voxelmap_shape = tuple(np.round(voxelmap_shape).astype(np.int32).tolist())
     voxelmap_shape = voxelmap_shape[::-1]  # DHW format
     coor_to_voxelidx = -np.ones(shape=voxelmap_shape, dtype=np.int32)
-    # coors_2d = np.zeros(shape=(max_voxels, 2), dtype=np.int32)
     bev_map_shape = list(voxelmap_shape)
     bev_map_shape[0] += 1
     height_lowers = np.linspace(
@@ -125,7 +115,6 @@ def points_to_bev(points,
     _points_to_bevmap_reverse_kernel(points, voxel_size, coors_range,
                                      coor_to_voxelidx, bev_map, height_lowers,
                                      with_reflectivity, max_voxels)
-    # print(voxel_num)
     return bev_map
 
 def point_to_vis_bev(points,

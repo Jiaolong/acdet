@@ -17,7 +17,6 @@ def train_one_epoch(model, optimizer, train_loader, model_func, lr_scheduler, ac
     for cur_it in range(total_it_each_epoch):
         try:
             batch = next(dataloader_iter)
-            print("gt boxes num is ",batch['gt_boxes'].shape)
         except StopIteration:
             dataloader_iter = iter(train_loader)
             batch = next(dataloader_iter)
@@ -65,7 +64,7 @@ def train_one_epoch(model, optimizer, train_loader, model_func, lr_scheduler, ac
 def train_model(model, optimizer, train_loader, model_func, lr_scheduler, optim_cfg,
                 start_epoch, total_epochs, start_iter, rank, tb_log, ckpt_save_dir, train_sampler=None,
                 lr_warmup_scheduler=None, ckpt_save_interval=1, max_ckpt_save_num=50,
-                merge_all_iters_to_one_epoch=False,stop_aug_epoch=0):
+                merge_all_iters_to_one_epoch=False):
     accumulated_iter = start_iter
     with tqdm.trange(start_epoch, total_epochs, desc='epochs', dynamic_ncols=True, leave=(rank == 0)) as tbar:
         total_it_each_epoch = len(train_loader)
@@ -76,8 +75,6 @@ def train_model(model, optimizer, train_loader, model_func, lr_scheduler, optim_
 
         dataloader_iter = iter(train_loader)
         for cur_epoch in tbar:
-            if cur_epoch>=total_epochs-stop_aug_epoch:
-                train_loader.dataset.data_augmentor.data_augmentor_queue=[]
             if train_sampler is not None:
                 train_sampler.set_epoch(cur_epoch)
 
