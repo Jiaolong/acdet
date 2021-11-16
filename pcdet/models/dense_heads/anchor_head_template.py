@@ -180,22 +180,6 @@ class AnchorHeadTemplate(nn.Module):
             dir_cls_targets = dir_targets
         return dir_cls_targets
 
-    @staticmethod
-    def get_direction_targetV2(anchors, reg_targets, one_hot=True, dir_offset=0, num_bins=2):
-        batch_size = reg_targets.shape[0]
-        anchors = anchors.view(batch_size, -1, anchors.shape[-1])
-        rot_gt = reg_targets[..., 5] + anchors[..., 5]
-        offset_rot = common_utils.limit_period(rot_gt - dir_offset, 0, 2 * np.pi)
-        dir_cls_targets = torch.floor(offset_rot / (2 * np.pi / num_bins)).long()
-        dir_cls_targets = torch.clamp(dir_cls_targets, min=0, max=num_bins - 1)
-
-        if one_hot:
-            dir_targets = torch.zeros(*list(dir_cls_targets.shape), num_bins, dtype=anchors.dtype,
-                                      device=dir_cls_targets.device)
-            dir_targets.scatter_(-1, dir_cls_targets.unsqueeze(dim=-1).long(), 1.0)
-            dir_cls_targets = dir_targets
-        return dir_cls_targets
-
     def get_box_reg_layer_loss(self):
         box_preds = self.forward_ret_dict['box_preds']
         box_dir_cls_preds = self.forward_ret_dict.get('dir_cls_preds', None)

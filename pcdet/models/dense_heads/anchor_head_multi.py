@@ -33,7 +33,7 @@ class SingleHead(BaseBEVBackbone):
                         kernel_size=3, stride=1, padding=1, bias=False
                     ),
                     nn.BatchNorm2d(num_middle_filter),
-                    nn.ReLU(inplace=True)
+                    nn.ReLU()
                 ])
                 c_in = num_middle_filter
             conv_cls_list.append(nn.Conv2d(
@@ -54,7 +54,7 @@ class SingleHead(BaseBEVBackbone):
                             kernel_size=3, stride=1, padding=1, bias=False
                         ),
                         nn.BatchNorm2d(num_middle_filter),
-                        nn.ReLU(inplace=True)
+                        nn.ReLU()
                     ])
                     c_in = num_middle_filter
 
@@ -163,7 +163,7 @@ class AnchorHeadMulti(AnchorHeadTemplate):
             self.shared_conv = nn.Sequential(
                 nn.Conv2d(input_channels, shared_conv_num_filter, 3, stride=1, padding=1, bias=False),
                 nn.BatchNorm2d(shared_conv_num_filter, eps=1e-3, momentum=0.01),
-                nn.ReLU(inplace=True),
+                nn.ReLU(),
             )
         else:
             self.shared_conv = None
