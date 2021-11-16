@@ -108,9 +108,6 @@ class RangeToBEV(nn.Module):
                 mask_far=proj_masks_far[k]
                 points_far=points_far[mask_far>0,:]
 
-                # from tools.visual_utils.cloud_viewer import draw_lidar
-                # draw_lidar(points.cpu().numpy()[:, :3],  'points_near')
-                # draw_lidar(points_far.cpu().numpy()[:, :3], 'points_far')
                 dist, idx = pointnet2_utils.three_nn(points_far.unsqueeze(0), points.unsqueeze(0))
                 dist_recip = 1.0 / (dist + 1e-8)
                 norm = torch.sum(dist_recip, dim=2, keepdim=True)
@@ -120,23 +117,10 @@ class RangeToBEV(nn.Module):
                 interpolated_feats=interpolated_feats.permute(0,2,1).contiguous().squeeze(0) #N*C
                 features=torch.cat([features,interpolated_feats],dim=0)
                 points=torch.cat([points,points_far],dim=0)
-                # draw_lidar(points.cpu().numpy()[:, :3], 'points_merge')
             # project points to BEV
             bev_features = self.bev_projector_range.get_projected_features(points, features, self.with_raw_features)  # C + 4, H2, W2
             bev_features_batch.append(bev_features)
         bev_features_batch = torch.stack(bev_features_batch,dim=0)  # B, C + 4, H2, W2
-
-        # if self.fuse_complete_points:
-        #     batch_complete_features = self.complete_net(batch_complete_points[:, 1:5])
-        #     complete_feature_batch=[]
-        #     for i in range(batch_size):
-        #         mask_complete=batch_complete_points[:,0]==i
-        #         points_complete=batch_complete_points[mask_complete]
-        #         features_complete=batch_complete_features[mask_complete]
-        #         complete_features=self.bev_projector_complete.get_projected_features(points_complete,features_complete,batch_size)
-        #         complete_feature_batch.append(complete_features)
-        #     complete_feature_batch=torch.stack(complete_feature_batch,dim=0)
-        #     bev_features_batch=torch.cat([bev_features_batch,complete_feature_batch],dim=1)
 
         if self.with_pooling:
             bev_features_batch = self.pool(bev_features_batch)
@@ -188,17 +172,11 @@ class RangeToBEV(nn.Module):
             range_features_batch.append(features)
         range_points_batch=torch.cat(range_points_batch,dim=0)
         range_features_batch=torch.cat(range_features_batch,dim=0)
-        # range_coord_batch=self.voxelize(range_points_batch)
-        # voxel_feature_range,voxel_coord_range=self.range_scatter(range_features_batch,range_coord_batch)
         voxel_feature_range,voxel_coord_range=self.range_dynamic_voxelization(range_points_batch,range_features_batch)
         range_scatter_input={'pillar_features':voxel_feature_range,'voxel_coords':voxel_coord_range}
         bev_features_batch=self.range_pillar_scatter(range_scatter_input)['spatial_features']
-        # print("type is ",type(batch_complete_points[:,1:5]))
         if self.fuse_complete_points:
             batch_complete_features = self.complete_net(batch_complete_points[:, 1:5])
-            # batch_complete_coord=self.voxelize(batch_complete_points)
-            # voxel_feature_complete, voxel_coord_complete = self.complete_scatter(batch_complete_features,
-            #                                                                      batch_complete_coord)
             voxel_feature_complete, voxel_coord_complete = self.complete_dynamic_voxelization(batch_complete_points[:, 0:4],batch_complete_features)
             complete_scatter_input = {'pillar_features': voxel_feature_complete, 'voxel_coords': voxel_coord_complete}
             complete_feature_batch=self.complete_pillar_scatter(complete_scatter_input)['spatial_features']

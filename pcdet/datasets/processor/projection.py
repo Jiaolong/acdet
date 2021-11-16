@@ -36,26 +36,10 @@ class PointProjection(object):
         Returns:
             dict: Results after projection
         """
-        # from tools.visual_utils.cloud_viewer import draw_lidar
-        # from tools.visual_utils.visualize_utils import draw_scenes
-        # import mayavi.mlab as mlab
-        # has_empty=False
-        # draw_lidar(points[:,:3],'before')
 
         points = torch.from_numpy(points)
         results = self.projector.do_projection(points, data_dict)
-        # assert 'points_img_far' in results.keys(),"points_img_far not in results"
-        # if self.proj_type=='cylindrical':
-        #     draw_lidar(points.numpy()[:,:3],self.proj_type+'before')
-        #     new_points = results["points_img"].permute(1, 2, 0).contiguous()
-        #     new_mask = results["proj_masks"]
-        #     new_points = new_points[new_mask][:, :3]
-        #     draw_lidar(new_points.numpy()[:, :3], self.proj_type+'after_near')
-        #     new_points_far = results["points_img_far"].permute(1, 2, 0).contiguous()
-        #     new_mask_far = results["proj_masks_far"]
-        #     new_points_far = new_points_far[new_mask_far][:, :3]
-        #     draw_lidar(new_points_far.numpy()[:, :3], self.proj_type + 'after_far')
-        #
+
         if self.remove_empty_bboxes and ('gt_boxes' in data_dict):
             gt_bboxes= data_dict['gt_boxes']
             num_boxes = len(gt_bboxes)
@@ -72,20 +56,11 @@ class PointProjection(object):
             gt_bboxes_expand[:,3:5]+=0.20
             new_point_masks = roiaware_pool3d_utils.points_in_boxes_cpu(new_points.numpy(),
                                                                         gt_bboxes_expand)
-            # colors=np.ones(new_points.shape)
-            # colors[new_point_masks>=0]=np.array([0,1,0])
-            # draw_lidar(new_points.numpy(),"after",colors=colors)
+
             for i in range(num_boxes):
-                # box_point_num_before = point_masks[point_masks == i].shape[0]
                 box_point_num_after = new_points[new_point_masks[i]>0].shape[0]
                 if box_point_num_after == 0:
                     gt_boxes_mask[i] = False
-                    # has_empty=True
-            # if has_empty:
-            #     draw_scenes(new_points.numpy(),gt_bboxes[:,:7])
-            #     mlab.show()
-            #     draw_scenes(new_points.numpy(),gt_bboxes[gt_boxes_mask][:,:7])
-            #     mlab.show()
 
             data_dict['gt_boxes']=gt_bboxes[gt_boxes_mask]
         if self.proj_type=="bev":
